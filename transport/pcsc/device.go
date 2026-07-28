@@ -3,6 +3,7 @@ package pcsc
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	nativepcsc "github.com/go-ctap/pcsc"
@@ -20,6 +21,8 @@ var (
 
 type card interface {
 	apdu.Transceiver
+	BeginTransaction(context.Context) error
+	EndTransaction(nativepcsc.Disposition) error
 	Status() (*nativepcsc.CardStatus, error)
 	Close() error
 }
@@ -62,9 +65,16 @@ func (d *Device) ATRInfo(_ context.Context) (token2.ATRInfo, error) {
 }
 
 // Config returns the Token2 device configuration.
-func (d *Device) Config(ctx context.Context) (token2.Config, error) {
+func (d *Device) Config(ctx context.Context) (config token2.Config, err error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+
+	if err := d.card.BeginTransaction(ctx); err != nil {
+		return token2.Config{}, err
+	}
+	defer func() {
+		err = errors.Join(err, d.card.EndTransaction(nativepcsc.DispositionLeaveCard))
+	}()
 
 	return d.config(ctx)
 }
@@ -115,14 +125,18 @@ func (d *Device) readSerialNumber(ctx context.Context) (apdu.Response, error) {
 }
 
 // SerialNumber returns the full device serial number.
-func (d *Device) SerialNumber(ctx context.Context) (string, error) {
+func (d *Device) SerialNumber(ctx context.Context) (serialNumber string, err error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if err := d.selectOTP(ctx); err != nil {
+	if err := d.card.BeginTransaction(ctx); err != nil {
 		return "", err
 	}
-	if _, err := d.readConfig(ctx); err != nil {
+	defer func() {
+		err = errors.Join(err, d.card.EndTransaction(nativepcsc.DispositionLeaveCard))
+	}()
+
+	if err := d.selectOTP(ctx); err != nil {
 		return "", err
 	}
 

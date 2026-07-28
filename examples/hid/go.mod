@@ -4,7 +4,7 @@ go 1.26.3
 
 require (
 	github.com/go-ctap/hid v0.10.1
-	github.com/go-ctap/token2 v0.4.6
+	github.com/go-ctap/token2 v0.5.0
 )
 
 require (

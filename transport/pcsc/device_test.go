@@ -39,13 +39,31 @@ type cardStep struct {
 }
 
 type scriptedCard struct {
-	steps     []cardStep
-	sent      [][]byte
-	status    *nativepcsc.CardStatus
-	statusErr error
-	closeErr  error
-	closed    bool
-	contexts  []context.Context
+	steps               []cardStep
+	sent                [][]byte
+	status              *nativepcsc.CardStatus
+	statusErr           error
+	closeErr            error
+	closed              bool
+	contexts            []context.Context
+	transactionContexts []context.Context
+	beginErr            error
+	endErr              error
+	begins              int
+	ends                int
+}
+
+func (c *scriptedCard) BeginTransaction(ctx context.Context) error {
+	c.transactionContexts = append(c.transactionContexts, ctx)
+	c.begins++
+
+	return c.beginErr
+}
+
+func (c *scriptedCard) EndTransaction(nativepcsc.Disposition) error {
+	c.ends++
+
+	return c.endErr
 }
 
 func (c *scriptedCard) Transmit(ctx context.Context, command []byte) ([]byte, error) {
@@ -99,6 +117,8 @@ func TestConfig(t *testing.T) {
 	assert.Equal(t, byte(0x02), config.TransferType)
 	assert.Equal(t, byte(0x2a), config.DeviceConfiguration)
 	assert.Empty(t, card.steps)
+	assert.Equal(t, 1, card.begins)
+	assert.Equal(t, 1, card.ends)
 	require.Len(t, card.contexts, 2)
 	for _, got := range card.contexts {
 		assert.Equal(t, "config", got.Value(contextKey{}))
@@ -120,9 +140,36 @@ func TestConfigRejectsFailedSelect(t *testing.T) {
 	assert.Len(t, card.sent, 1)
 }
 
-func TestStatusErrors(t *testing.T) {
-	configData := []byte{0x02, 0x2a, 0x86, 0x01, 0x10, 0x00, 0x02, 0x01, 0x02, 0x37}
+func TestConfigRejectsFailedTransaction(t *testing.T) {
+	want := errors.New("transaction unavailable")
+	card := &scriptedCard{beginErr: want}
 
+	_, err := (&Device{card: card}).Config(t.Context())
+
+	require.ErrorIs(t, err, want)
+	assert.Equal(t, 1, card.begins)
+	assert.Zero(t, card.ends)
+	assert.Empty(t, card.sent)
+}
+
+func TestConfigPropagatesEndTransactionFailure(t *testing.T) {
+	want := errors.New("end transaction failed")
+	card := &scriptedCard{
+		steps: []cardStep{
+			{command: selectOTPAPDU, response: successfulResponse(nil)},
+			{command: configAPDU, response: successfulResponse([]byte{0x02})},
+		},
+		endErr: want,
+	}
+
+	_, err := (&Device{card: card}).Config(t.Context())
+
+	require.ErrorIs(t, err, want)
+	assert.Equal(t, 1, card.begins)
+	assert.Equal(t, 1, card.ends)
+}
+
+func TestStatusErrors(t *testing.T) {
 	tests := []struct {
 		name      string
 		operation string
@@ -146,7 +193,6 @@ func TestStatusErrors(t *testing.T) {
 			operation: "prepare legacy serial-number command",
 			steps: []cardStep{
 				{command: selectOTPAPDU, response: successfulResponse(nil)},
-				{command: configAPDU, response: successfulResponse(configData)},
 				{command: serialAPDU, response: statusResponse(0x6d00)},
 				{command: legacySerialPreludeAPDU, response: statusResponse(0x6985)},
 			},
@@ -160,7 +206,6 @@ func TestStatusErrors(t *testing.T) {
 			operation: "read serial number",
 			steps: []cardStep{
 				{command: selectOTPAPDU, response: successfulResponse(nil)},
-				{command: configAPDU, response: successfulResponse(configData)},
 				{command: serialAPDU, response: statusResponse(0x6a80)},
 			},
 			call: func(d *Device) error {
@@ -184,11 +229,9 @@ func TestStatusErrors(t *testing.T) {
 }
 
 func TestSerialNumberSequence(t *testing.T) {
-	configData := []byte{0x02, 0x2a, 0x86, 0x01, 0x10, 0x00, 0x02, 0x01, 0x02, 0x37}
 	serialData := []byte{0xd1, 0x0e, '7', '2', '1', '0', '2', '9', '3', '5', '7', '8', '0', '5', '2', '8'}
 	card := &scriptedCard{steps: []cardStep{
 		{command: selectOTPAPDU, response: successfulResponse(nil)},
-		{command: configAPDU, response: successfulResponse(configData)},
 		{command: serialAPDU, response: successfulResponse(serialData)},
 	}}
 	device := &Device{card: card}
@@ -198,14 +241,14 @@ func TestSerialNumberSequence(t *testing.T) {
 
 	assert.Equal(t, "72102935780528", serial)
 	assert.Empty(t, card.steps)
+	assert.Equal(t, 1, card.begins)
+	assert.Equal(t, 1, card.ends)
 }
 
 func TestLegacySerialNumberSequence(t *testing.T) {
-	configData := []byte{0x02, 0x36, 0x85, 0x01, 0x10, 0x00, 0x02, 0x01, 0x02, 0x13}
 	serialData := []byte{0xd1, 0x0e, '7', '6', '1', '0', '5', '0', '4', '4', '9', '3', '5', '3', '5', '6'}
 	card := &scriptedCard{steps: []cardStep{
 		{command: selectOTPAPDU, response: successfulResponse(nil)},
-		{command: configAPDU, response: successfulResponse(configData)},
 		{command: serialAPDU, response: statusResponse(0x6d00)},
 		{command: legacySerialPreludeAPDU, response: successfulResponse([]byte{0x00})},
 		{command: serialAPDU, response: statusResponse(0x6110)},
@@ -218,6 +261,8 @@ func TestLegacySerialNumberSequence(t *testing.T) {
 
 	assert.Equal(t, "76105044935356", serial)
 	assert.Empty(t, card.steps)
+	assert.Equal(t, 1, card.begins)
+	assert.Equal(t, 1, card.ends)
 }
 
 func TestATRInfo(t *testing.T) {

@@ -28,15 +28,15 @@ Pure-Go Token2 device support over PC/SC, USB HID feature reports and CTAPHID.
 | Full serial number                          | Yes                  | Yes         | No      |
 | Model identification from the serial number | Yes                  | Yes         | No      |
 | ATR-derived product ID and serial suffix    | Generation-dependent | No          | Yes     |
-| Token2 configuration                        | Yes                  | No          | No      |
+| Token2 configuration                        | Generation-dependent | No          | No      |
 
-The PC/SC serial-number query performs the device-specific configuration query
-required by supported Token2 devices. On firmware such as R3.1 it also retries
-the serial-number command after an internal compatibility prelude. Some
-proprietary queries are not available on every Token2 generation. In particular,
-R3.3 devices may expose a generic PIV ATR without the Token2 product ID and
-serial suffix; `ATRInfo` then returns `ErrInvalidATR`. Serial-number retrieval is
-independent of ATR parsing and should not be gated on `ATRInfo` succeeding.
+The PC/SC serial-number query selects the Token2 OTP application and reads the
+serial number directly. On firmware such as R3.1 it retries the serial-number
+command after an internal compatibility prelude. Configuration queries are not
+available on every Token2 generation. In particular, R3.3 cards reject the
+configuration command and may expose a generic PIV ATR without the Token2
+product ID and serial suffix; `ATRInfo` then returns `ErrInvalidATR`.
+Serial-number retrieval is independent of both configuration and ATR parsing.
 
 All concrete device types serialize complete logical operations. Malformed data
 received from a card or HID device is returned as an error. Callers are expected
