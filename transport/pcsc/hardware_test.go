@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/go-ctap/token2"
+	"github.com/go-ctap/token2/apdu"
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,15 +22,21 @@ func TestHardware(t *testing.T) {
 		require.NoError(t, device.Close())
 	})
 
-	// SerialNumber is intentionally first: it must perform its internal
-	// configuration query on a fresh connection.
+	// Identity must remain readable even on generations that do not expose
+	// the optional configuration command.
 	serialNumber, err := device.SerialNumber(t.Context())
 	require.NoError(t, err)
 	require.NotEmpty(t, serialNumber)
 
 	config, err := device.Config(t.Context())
-	require.NoError(t, err)
-	require.NotEmpty(t, config.Raw)
+	if err != nil {
+		var status *apdu.StatusError
+		require.ErrorAs(t, err, &status)
+		require.Contains(t, []uint16{0x6a86, 0x6d00}, status.SW)
+		t.Logf("configuration is not supported: %v", err)
+	} else {
+		require.NotEmpty(t, config.Raw)
+	}
 
 	atr, err := device.ATRInfo(t.Context())
 	if errors.Is(err, token2.ErrInvalidATR) {

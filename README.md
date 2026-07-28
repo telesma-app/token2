@@ -20,6 +20,8 @@ Pure-Go Token2 device support over PC/SC, USB HID feature reports and CTAPHID.
   [`github.com/go-ctap/hid`](https://github.com/go-ctap/hid).
 - `token2/transport/ctaphid` reads the Token2 ATR through CTAPHID vendor
   command `0x41`, using [`github.com/go-ctap/ctap`](https://github.com/go-ctap/ctap).
+- `token2/resolver` correlates a FIDO attachment with Token2's PC/SC and
+  feature-HID interfaces without guessing between multiple devices.
 
 ## Transport capabilities
 
