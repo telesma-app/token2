@@ -43,7 +43,7 @@ func ConfigCommand() apdu.Command {
 }
 
 // LegacySerialNumberPreludeCommand primes the device-information command on
-// firmware revisions such as R3.1 which initially reject it with 6D00.
+// firmware releases such as R3.1 which initially reject it with 6D00.
 func LegacySerialNumberPreludeCommand() apdu.Command {
 	return apdu.Command{
 		CLA:  classToken2,

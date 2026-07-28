@@ -14,7 +14,7 @@ func TestIdentify(t *testing.T) {
 	assert.Equal(t, "72103", identity.Prefix)
 	assert.Equal(t, byte('6'), identity.CheckDigit)
 	assert.Equal(t, "54095303", identity.Suffix)
-	assert.Equal(t, "R3.2", identity.Model.Revision)
+	assert.Equal(t, "R3.2", identity.Model.Release)
 	assert.Equal(t, "Bio3 Dual A+C PIN+", identity.Model.FormFactor)
 }
 
@@ -22,7 +22,7 @@ func TestIdentifyCustomCard(t *testing.T) {
 	identity, ok := Identify("70000042")
 	require.True(t, ok)
 
-	assert.Equal(t, "R3.1", identity.Model.Revision)
+	assert.Equal(t, "R3.1", identity.Model.Release)
 	assert.Equal(t, "Custom system access card", identity.Model.FormFactor)
 }
 
@@ -57,7 +57,7 @@ func TestModelDisplayName(t *testing.T) {
 			model: Model{
 				Branding:   "Token2",
 				FormFactor: "Bio3 Dual A+C PIN+",
-				Revision:   "R3.2",
+				Release:    "R3.2",
 			},
 			want: "Token2 Bio3 Dual A+C PIN+",
 		},
@@ -65,7 +65,7 @@ func TestModelDisplayName(t *testing.T) {
 			name: "model without branding",
 			model: Model{
 				FormFactor: "Mini USB-C PIN+",
-				Revision:   "R3.1",
+				Release:    "R3.1",
 			},
 			want: "Mini USB-C PIN+",
 		},
@@ -78,7 +78,7 @@ func TestModelDisplayName(t *testing.T) {
 			model: Model{
 				Branding:   " Token2 ",
 				FormFactor: " USB-A NFC ",
-				Revision:   " R1 ",
+				Release:    " R1 ",
 			},
 			want: "Token2 USB-A NFC",
 		},
