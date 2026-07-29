@@ -173,6 +173,32 @@ func TestResolveHIDMatchesFeatureInterfaceByParent(t *testing.T) {
 	}
 }
 
+func TestResolveHIDUsesMatchedFIDOInterfaceForFeatureReports(t *testing.T) {
+	resolver := testResolver()
+	resolver.enumerateHID = func() ([]hidInfo, error) {
+		return []hidInfo{{
+			path:       "fido-interface",
+			productID:  0x1234,
+			instanceID: "instance",
+		}}, nil
+	}
+	resolver.openHID = func(path string) (token2.Device, error) {
+		if path != "fido-interface" {
+			t.Fatalf("path = %q", path)
+		}
+
+		return &fakeDevice{serial: "72102935780528"}, nil
+	}
+
+	result, err := resolver.ResolveHID(t.Context(), HIDTarget{
+		ProductID:  0x1234,
+		InstanceID: "instance",
+	})
+	if err != nil || result.Identity.SerialNumber != "72102935780528" {
+		t.Fatalf("result = %#v, error = %v", result, err)
+	}
+}
+
 func TestResolveHIDRetriesWhileCompositeInterfacesAppear(t *testing.T) {
 	resolver := testResolver()
 	enumerations := 0

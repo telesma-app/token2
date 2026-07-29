@@ -18,8 +18,6 @@ import (
 
 const (
 	token2VendorID             uint16 = 0x349e
-	fidoUsagePage              uint16 = 0xf1d0
-	fidoUsage                  uint16 = 0x01
 	resolveAttempts                   = 3
 	defaultResolveRetryDelay          = 200 * time.Millisecond
 	selectApplicationOperation        = "select Token2 OTP application"
@@ -65,8 +63,6 @@ type hidInfo struct {
 	path           string
 	serial         string
 	productID      uint16
-	usagePage      uint16
-	usage          uint16
 	instanceID     string
 	parentDeviceID string
 }
@@ -208,8 +204,7 @@ func (r *Resolver) featureHIDCandidates(ctx context.Context, target HIDTarget) (
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		if info.productID != target.ProductID ||
-			info.usagePage == fidoUsagePage && info.usage == fidoUsage {
+		if info.productID != target.ProductID {
 			continue
 		}
 
@@ -343,8 +338,6 @@ func localHID() ([]hidInfo, error) {
 			path:           info.Path,
 			serial:         info.SerialNbr,
 			productID:      info.ProductID,
-			usagePage:      info.UsagePage,
-			usage:          info.Usage,
 			instanceID:     info.InstanceID,
 			parentDeviceID: info.ParentDeviceID,
 		})

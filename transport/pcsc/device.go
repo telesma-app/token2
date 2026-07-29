@@ -99,6 +99,18 @@ func (d *Device) selectOTP(ctx context.Context) error {
 	return nil
 }
 
+func (d *Device) selectFIDO(ctx context.Context) error {
+	response, err := apdu.Exchange(ctx, d.card, protocol.SelectFIDOCommand())
+	if err != nil {
+		return err
+	}
+	if err := response.Err("select FIDO application"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (d *Device) readConfig(ctx context.Context) (token2.Config, error) {
 	response, err := apdu.Exchange(ctx, d.card, protocol.ConfigCommand())
 	if err != nil {
@@ -109,15 +121,6 @@ func (d *Device) readConfig(ctx context.Context) (token2.Config, error) {
 	}
 
 	return token2.ParseConfig(response.Data)
-}
-
-func (d *Device) prepareLegacySerialNumber(ctx context.Context) error {
-	response, err := apdu.Exchange(ctx, d.card, protocol.LegacySerialNumberPreludeCommand())
-	if err != nil {
-		return err
-	}
-
-	return response.Err("prepare legacy serial-number command")
 }
 
 func (d *Device) readSerialNumber(ctx context.Context) (apdu.Response, error) {
@@ -145,7 +148,7 @@ func (d *Device) SerialNumber(ctx context.Context) (serialNumber string, err err
 		return "", err
 	}
 	if response.SW == statusInstructionNotSupported {
-		if err := d.prepareLegacySerialNumber(ctx); err != nil {
+		if err := d.selectFIDO(ctx); err != nil {
 			return "", err
 		}
 

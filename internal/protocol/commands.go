@@ -12,8 +12,6 @@ const (
 	instructionDeviceInfo    = 0x33
 
 	configurationRead = 0x02
-	configurationCTAP = 0x03
-	ctapGetInfo       = 0x04
 
 	// SerialResponseTag identifies the serial-number TLV returned by the device.
 	SerialResponseTag = 0xd1
@@ -22,13 +20,24 @@ const (
 )
 
 // SelectOTPCommand selects the Token2 OTP application used by configuration
-// and device-information commands.
+// commands.
 func SelectOTPCommand() apdu.Command {
 	return apdu.Command{
 		CLA:  classISO,
 		INS:  instructionSelect,
 		P1:   0x04,
 		Data: []byte{0xf0, 0, 0, 1, 0x4f, 0x74, 0x70, 1},
+	}
+}
+
+// SelectFIDOCommand selects the standard FIDO application used by the Token2
+// serial-number command over PC/SC.
+func SelectFIDOCommand() apdu.Command {
+	return apdu.Command{
+		CLA:  classISO,
+		INS:  instructionSelect,
+		P1:   0x04,
+		Data: []byte{0xa0, 0, 0, 6, 0x47, 0x2f, 0, 1},
 	}
 }
 
@@ -39,17 +48,6 @@ func ConfigCommand() apdu.Command {
 		INS:  instructionConfiguration,
 		P1:   configurationRead,
 		Data: make([]byte, 10),
-	}
-}
-
-// LegacySerialNumberPreludeCommand primes the device-information command on
-// firmware releases such as R3.1 which initially reject it with 6D00.
-func LegacySerialNumberPreludeCommand() apdu.Command {
-	return apdu.Command{
-		CLA:  classToken2,
-		INS:  instructionConfiguration,
-		P1:   configurationCTAP,
-		Data: []byte{ctapGetInfo},
 	}
 }
 

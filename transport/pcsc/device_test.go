@@ -18,12 +18,15 @@ var (
 		0x00, 0xa4, 0x04, 0x00, 0x08,
 		0xf0, 0x00, 0x00, 0x01, 0x4f, 0x74, 0x70, 0x01,
 	}
+	selectFIDOAPDU = []byte{
+		0x00, 0xa4, 0x04, 0x00, 0x08,
+		0xa0, 0x00, 0x00, 0x06, 0x47, 0x2f, 0x00, 0x01,
+	}
 	configAPDU = []byte{
 		0x80, 0xc5, 0x02, 0x00, 0x0a,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	}
-	legacySerialPreludeAPDU = []byte{0x80, 0xc5, 0x03, 0x00, 0x01, 0x04}
-	serialAPDU              = []byte{
+	serialAPDU = []byte{
 		0x80, 0x33, 0x00, 0x00, 0x12,
 		0xd1, 0x10,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -189,12 +192,23 @@ func TestStatusErrors(t *testing.T) {
 			},
 		},
 		{
-			name:      "legacy serial-number prelude",
-			operation: "prepare legacy serial-number command",
+			name:      "OTP application for serial number",
+			operation: "select Token2 OTP application",
+			steps: []cardStep{
+				{command: selectOTPAPDU, response: statusResponse(0x6a82)},
+			},
+			call: func(d *Device) error {
+				_, err := d.SerialNumber(t.Context())
+				return err
+			},
+		},
+		{
+			name:      "FIDO application",
+			operation: "select FIDO application",
 			steps: []cardStep{
 				{command: selectOTPAPDU, response: successfulResponse(nil)},
 				{command: serialAPDU, response: statusResponse(0x6d00)},
-				{command: legacySerialPreludeAPDU, response: statusResponse(0x6985)},
+				{command: selectFIDOAPDU, response: statusResponse(0x6a82)},
 			},
 			call: func(d *Device) error {
 				_, err := d.SerialNumber(t.Context())
@@ -245,12 +259,12 @@ func TestSerialNumberSequence(t *testing.T) {
 	assert.Equal(t, 1, card.ends)
 }
 
-func TestLegacySerialNumberSequence(t *testing.T) {
+func TestSerialNumberSequenceFallsBackToFIDO(t *testing.T) {
 	serialData := []byte{0xd1, 0x0e, '7', '6', '1', '0', '5', '0', '4', '4', '9', '3', '5', '3', '5', '6'}
 	card := &scriptedCard{steps: []cardStep{
 		{command: selectOTPAPDU, response: successfulResponse(nil)},
 		{command: serialAPDU, response: statusResponse(0x6d00)},
-		{command: legacySerialPreludeAPDU, response: successfulResponse([]byte{0x00})},
+		{command: selectFIDOAPDU, response: successfulResponse([]byte("U2F_V2"))},
 		{command: serialAPDU, response: statusResponse(0x6110)},
 		{command: getSerialResponseAPDU, response: successfulResponse(serialData)},
 	}}

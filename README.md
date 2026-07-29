@@ -32,13 +32,17 @@ Pure-Go Token2 device support over PC/SC, USB HID feature reports and CTAPHID.
 | ATR-derived product ID and serial suffix    | Generation-dependent | No          | Yes     |
 | Token2 configuration                        | Generation-dependent | No          | No      |
 
-The PC/SC serial-number query selects the Token2 OTP application and reads the
-serial number directly. On firmware such as R3.1 it retries the serial-number
-command after an internal compatibility prelude. Configuration queries are not
-available on every Token2 generation. In particular, R3.3 cards reject the
-configuration command and may expose a generic PIV ATR without the Token2
-product ID and serial suffix; `ATRInfo` then returns `ErrInvalidATR`.
-Serial-number retrieval is independent of both configuration and ATR parsing.
+The PC/SC serial-number query selects the Token2 OTP application and first reads
+the serial number there. If the OTP application reports that the instruction is
+unsupported, the query switches to the standard FIDO application and retries,
+matching both R3.2 USB CCID and the official R3.1 NFC tooling. Configuration
+queries are not available on every Token2 generation. In particular, R3.3
+cards reject the configuration command and may expose a generic PIV ATR without
+the Token2 product ID and serial suffix; `ATRInfo` then returns `ErrInvalidATR`.
+Serial-number retrieval is independent of the optional OTP configuration
+command and ATR parsing. USB identity resolution can use Token2 feature reports
+on the matched FIDO HID interface itself, as well as on a separate auxiliary HID
+interface when the device exposes one.
 
 All concrete device types serialize complete logical operations. Malformed data
 received from a card or HID device is returned as an error. Callers are expected
