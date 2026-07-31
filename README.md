@@ -44,6 +44,24 @@ command and ATR parsing. USB identity resolution can use Token2 feature reports
 on the matched FIDO HID interface itself, as well as on a separate auxiliary HID
 interface when the device exposes one.
 
+### Token2 reader settings
+
+Compatible Token2 readers expose sound-level and NFC controls through PC/SC:
+
+```go
+if err := device.SetReaderSoundLevel(ctx, token2pcsc.ReaderSoundLevel3); err != nil {
+	return err
+}
+if err := device.SetReaderNFC(ctx, false); err != nil {
+	return err
+}
+```
+
+`ReaderSoundOff` disables sound; the other sound levels range from 1 through 5.
+The reader must be physically power-cycled after changing either setting. A
+successful `9000` response means only that the command was received: an
+unsupported reader may return success and ignore it.
+
 All concrete device types serialize complete logical operations. Malformed data
 received from a card or HID device is returned as an error. Callers are expected
 to pass valid reader names, HID paths, serial-number strings and APDU commands;
