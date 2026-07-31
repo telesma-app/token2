@@ -73,11 +73,12 @@ Complete runnable usage is available in the transport examples. Each example is
 an independent Go module, keeping transport-specific dependencies out of the
 root module.
 
-| Example                                | Purpose                                              | Optional configuration                |
-|----------------------------------------|------------------------------------------------------|---------------------------------------|
-| [`examples/pcsc`](examples/pcsc)       | Read identity and configuration over PC/SC           | `PCSC_READER` (reader-name substring) |
-| [`examples/hid`](examples/hid)         | Read the full serial number over HID feature reports | `TOKEN2_HID_PATH`                     |
-| [`examples/ctaphid`](examples/ctaphid) | Read ATR identity over the CTAPHID vendor command    | `TOKEN2_CTAPHID_PATH`                 |
+| Example                                                        | Purpose                                              | Optional configuration                |
+|----------------------------------------------------------------|------------------------------------------------------|---------------------------------------|
+| [`examples/pcsc`](examples/pcsc)                               | Read identity and configuration over PC/SC           | `PCSC_READER` (reader-name substring) |
+| [`examples/pcsc-reader-settings`](examples/pcsc-reader-settings) | Configure Token2 reader sound and NFC over PC/SC      | `-reader` (reader-name substring)     |
+| [`examples/hid`](examples/hid)                                 | Read the full serial number over HID feature reports | `TOKEN2_HID_PATH`                     |
+| [`examples/ctaphid`](examples/ctaphid)                         | Read ATR identity over the CTAPHID vendor command    | `TOKEN2_CTAPHID_PATH`                 |
 
 The CTAPHID transport sends logical vendor command `0x41`; CTAPHID framing adds
 the init-packet bit, so the on-wire command byte is `0xc1`.
@@ -89,9 +90,22 @@ cd examples/pcsc
 go run .
 ```
 
-Without an environment variable, an example selects the first matching device
-or reader it finds. Set the corresponding variable when multiple Token2 devices
-are connected or when automatic HID selection is not available on the host.
+Without an environment variable, the read-only examples select the first
+matching device or reader they find. Set the corresponding variable when
+multiple Token2 devices are connected or when automatic HID selection is not
+available on the host.
+
+The reader-settings example requires at least one setting and never changes a
+reader merely by being run. For example:
+
+```sh
+cd examples/pcsc-reader-settings
+go run . -reader 'TOKEN2' -sound 3 -nfc off
+```
+
+When `-reader` is omitted, the example prefers `Token2 Smart Reader` and then
+falls back to the first PC/SC reader with a card present. An explicit `-reader`
+filter never falls back to a different reader.
 
 ## Hardware tests
 
