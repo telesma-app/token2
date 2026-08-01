@@ -26,13 +26,15 @@ var (
 		0x80, 0xc5, 0x02, 0x00, 0x0a,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	}
-	serialAPDU = []byte{
+	legacySerialPreludeAPDU = []byte{0x80, 0xc5, 0x03, 0x00, 0x01, 0x04}
+	serialAPDU              = []byte{
 		0x80, 0x33, 0x00, 0x00, 0x12,
 		0xd1, 0x10,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	}
-	getSerialResponseAPDU = []byte{0x80, 0xc0, 0x00, 0x00, 0x10}
+	getLegacyPreludeResponseAPDU = []byte{0x80, 0xc0, 0x00, 0x00, 0x01}
+	getSerialResponseAPDU        = []byte{0x80, 0xc0, 0x00, 0x00, 0x10}
 )
 
 type cardStep struct {
@@ -209,6 +211,7 @@ func TestStatusErrors(t *testing.T) {
 			steps: []cardStep{
 				{command: selectOTPAPDU, response: successfulResponse(nil)},
 				{command: serialAPDU, response: statusResponse(0x6d00)},
+				{command: legacySerialPreludeAPDU, response: statusResponse(0x6d00)},
 				{command: selectFIDOAPDU, response: statusResponse(0x6a82)},
 			},
 			call: func(d *Device) error {
@@ -261,11 +264,34 @@ func TestDeviceInfoSequence(t *testing.T) {
 	assert.Equal(t, 1, card.ends)
 }
 
+func TestDeviceInfoSequenceFallsBackToLegacyPrelude(t *testing.T) {
+	serialData := []byte{0xd1, 0x0e, '7', '6', '1', '0', '5', '0', '4', '4', '9', '3', '5', '3', '5', '6'}
+	card := &scriptedCard{steps: []cardStep{
+		{command: selectOTPAPDU, response: successfulResponse(nil)},
+		{command: serialAPDU, response: statusResponse(0x6d00)},
+		{command: legacySerialPreludeAPDU, response: statusResponse(0x6101)},
+		{command: getLegacyPreludeResponseAPDU, response: successfulResponse([]byte{0x00})},
+		{command: serialAPDU, response: statusResponse(0x6110)},
+		{command: getSerialResponseAPDU, response: successfulResponse(serialData)},
+	}}
+	device := &Device{card: card}
+
+	info, err := device.DeviceInfo(t.Context())
+	require.NoError(t, err)
+
+	assert.Equal(t, "76105044935356", info.SerialNumber)
+	assert.Equal(t, "USB-A PIN+ NFC", info.FormFactor)
+	assert.Empty(t, card.steps)
+	assert.Equal(t, 1, card.begins)
+	assert.Equal(t, 1, card.ends)
+}
+
 func TestDeviceInfoSequenceFallsBackToFIDO(t *testing.T) {
 	serialData := []byte{0xd1, 0x0e, '7', '6', '1', '0', '5', '0', '4', '4', '9', '3', '5', '3', '5', '6'}
 	card := &scriptedCard{steps: []cardStep{
 		{command: selectOTPAPDU, response: successfulResponse(nil)},
 		{command: serialAPDU, response: statusResponse(0x6d00)},
+		{command: legacySerialPreludeAPDU, response: statusResponse(0x6d00)},
 		{command: selectFIDOAPDU, response: successfulResponse([]byte("U2F_V2"))},
 		{command: serialAPDU, response: statusResponse(0x6110)},
 		{command: getSerialResponseAPDU, response: successfulResponse(serialData)},

@@ -40,11 +40,12 @@ the full serial number or model.
 
 The PC/SC serial-number query selects the Token2 OTP application and first reads
 the serial number there. If the OTP application reports that the instruction is
-unsupported, the query switches to the standard FIDO application and retries,
-matching both R3.2 USB CCID and the official R3.1 NFC tooling. Configuration
-queries are not available on every Token2 generation. In particular, R3.3
-cards reject the configuration command and may expose a generic PIV ATR without
-the Token2 product ID and serial suffix; `ATR` then returns `ErrInvalidATR`.
+unsupported, the query runs the legacy CTAP compatibility prelude required by
+R3.1 and retries. Devices that still reject the command are retried through the
+standard FIDO application. Configuration queries are not available on every
+Token2 generation. In particular, R3.3 cards reject the configuration command
+and may expose a generic PIV ATR without the Token2 product ID and serial
+suffix; `ATR` then returns `ErrInvalidATR`.
 Serial-number retrieval is independent of the optional OTP configuration
 command and ATR parsing. USB identity resolution can use Token2 feature reports
 on the matched FIDO HID interface itself, as well as on a separate auxiliary HID
@@ -121,4 +122,11 @@ Hardware tests are opt-in:
 TOKEN2_PCSC_TEST_READER='TOKEN2 FIDO2 Security Key(0016)' go test -run TestHardware -v ./transport/pcsc
 TOKEN2_HID_TEST_PATH='platform-specific-path' go test -run TestHardware -v ./transport/hid
 TOKEN2_CTAPHID_TEST_PATH='platform-specific-path' go test -run TestHardware -v ./transport/ctaphid
+```
+
+To verify several PC/SC tokens one after another through the unified
+`DeviceInfo` API, run the event monitor and insert or present each token:
+
+```sh
+go run ./cmd/pcsc-serial-monitor
 ```

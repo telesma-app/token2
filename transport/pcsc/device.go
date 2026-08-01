@@ -135,6 +135,19 @@ func (d *Device) readSerialNumber(ctx context.Context) (iso7816.Response, error)
 	)
 }
 
+func (d *Device) prepareLegacySerialNumber(ctx context.Context) error {
+	response, err := exchange(
+		ctx,
+		d.card,
+		protocol.LegacySerialNumberPreludeCommand(),
+	)
+	if err != nil {
+		return err
+	}
+
+	return responseError("prepare legacy serial-number command", response)
+}
+
 // DeviceInfo returns transport-neutral information derived from the device
 // serial number.
 func (d *Device) DeviceInfo(
@@ -159,13 +172,28 @@ func (d *Device) DeviceInfo(
 		return token2.DeviceInfo{}, err
 	}
 	if response.Status == statusInstructionNotSupported {
-		if err := d.selectFIDO(ctx); err != nil {
-			return token2.DeviceInfo{}, err
+		legacyErr := d.prepareLegacySerialNumber(ctx)
+		if legacyErr == nil {
+			response, err = d.readSerialNumber(ctx)
+			if err != nil {
+				return token2.DeviceInfo{}, err
+			}
+		} else {
+			var statusErr *iso7816.APDUError
+			if !errors.As(legacyErr, &statusErr) {
+				return token2.DeviceInfo{}, legacyErr
+			}
 		}
 
-		response, err = d.readSerialNumber(ctx)
-		if err != nil {
-			return token2.DeviceInfo{}, err
+		if response.Status == statusInstructionNotSupported {
+			if err := d.selectFIDO(ctx); err != nil {
+				return token2.DeviceInfo{}, errors.Join(legacyErr, err)
+			}
+
+			response, err = d.readSerialNumber(ctx)
+			if err != nil {
+				return token2.DeviceInfo{}, err
+			}
 		}
 	}
 	if err := responseError("read serial number", response); err != nil {

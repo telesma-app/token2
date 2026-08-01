@@ -14,6 +14,8 @@ const (
 	instructionReaderVendor  = 0xff
 
 	configurationRead  = 0x02
+	configurationCTAP  = 0x03
+	ctapGetInfo        = 0x04
 	readerMagicP1      = 0x55
 	readerMagicP2      = 0x77
 	readerSettingNFC   = 0x03
@@ -26,7 +28,7 @@ const (
 )
 
 // SelectOTPCommand selects the Token2 OTP application used by configuration
-// commands.
+// and initial serial-number commands.
 func SelectOTPCommand() iso7816.Command {
 	return iso7816.Command{
 		CLA:  classISO,
@@ -54,6 +56,17 @@ func ConfigurationCommand() iso7816.Command {
 		INS:  instructionConfiguration,
 		P1:   configurationRead,
 		Data: make([]byte, 10),
+	}
+}
+
+// LegacySerialNumberPreludeCommand primes the device-information command on
+// firmware releases such as R3.1 which initially reject it with 6D00.
+func LegacySerialNumberPreludeCommand() iso7816.Command {
+	return iso7816.Command{
+		CLA:  classToken2,
+		INS:  instructionConfiguration,
+		P1:   configurationCTAP,
+		Data: []byte{ctapGetInfo},
 	}
 }
 
