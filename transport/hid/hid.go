@@ -7,8 +7,8 @@ import (
 	"sync"
 
 	hidapi "github.com/go-ctap/hid"
+	"github.com/go-ctap/iso7816"
 	"github.com/go-ctap/token2"
-	"github.com/go-ctap/token2/apdu"
 	"github.com/go-ctap/token2/internal/protocol"
 )
 
@@ -33,8 +33,6 @@ type Device struct {
 	device featureDevice
 }
 
-var _ token2.SerialNumberDevice = (*Device)(nil)
-
 // Open opens the HID device at path.
 func Open(path string) (*Device, error) {
 	device, err := hidapi.OpenPath(path)
@@ -53,31 +51,39 @@ func (d *Device) Close() error {
 	return d.device.Close()
 }
 
-// SerialNumber returns the device serial number.
-func (d *Device) SerialNumber(ctx context.Context) (string, error) {
+// DeviceInfo returns transport-neutral information derived from the device
+// serial number.
+func (d *Device) DeviceInfo(ctx context.Context) (token2.DeviceInfo, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	response, err := apdu.Exchange(
+	response, err := iso7816.Exchange(
 		ctx,
 		transceiver{device: d.device},
-		protocol.SerialNumberCommand(true),
+		protocol.SerialNumberCommand(iso7816.EncodingExtended),
+		iso7816.WithMoreDataStatusBytes(0x61, 0x9f),
 	)
 	if err != nil {
-		return "", err
+		return token2.DeviceInfo{}, err
 	}
-	if err := response.Err("read serial number"); err != nil {
-		return "", err
+	if err := response.APDUError(); err != nil {
+		return token2.DeviceInfo{}, fmt.Errorf("read serial number: %w", err)
 	}
 
-	return token2.ParseSerialNumber(response.Data)
+	serialNumber, err := token2.ParseSerialNumber(response.Data)
+	if err != nil {
+		return token2.DeviceInfo{}, err
+	}
+
+	info, _ := token2.Identify(serialNumber)
+	return info, nil
 }
 
 type transceiver struct {
 	device featureDevice
 }
 
-var _ apdu.Transceiver = transceiver{}
+var _ iso7816.Card = transceiver{}
 
 func (t transceiver) Transmit(_ context.Context, command []byte) ([]byte, error) {
 	for offset, sequence := 0, byte(0); offset < len(command); sequence++ {

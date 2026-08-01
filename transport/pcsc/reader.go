@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-ctap/token2/apdu"
+	"github.com/go-ctap/iso7816"
 	"github.com/go-ctap/token2/internal/protocol"
 )
 
@@ -38,14 +38,18 @@ func (d *Device) SetReaderNFC(ctx context.Context, enabled bool) error {
 	return d.setReaderSetting(ctx, protocol.ReaderNFCCommand(enabled), "set Token2 reader NFC")
 }
 
-func (d *Device) setReaderSetting(ctx context.Context, command apdu.Command, operation string) error {
+func (d *Device) setReaderSetting(
+	ctx context.Context,
+	command iso7816.Command,
+	operation string,
+) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	response, err := apdu.Exchange(ctx, d.card, command)
+	response, err := exchange(ctx, d.card, command)
 	if err != nil {
 		return err
 	}
 
-	return response.Err(operation)
+	return responseError(operation, response)
 }

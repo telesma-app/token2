@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/go-ctap/iso7816"
 	nativepcsc "github.com/go-ctap/pcsc"
-	"github.com/go-ctap/token2/apdu"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -103,7 +103,7 @@ func statusResponse(status uint16) []byte {
 	return []byte{byte(status >> 8), byte(status)}
 }
 
-func TestConfig(t *testing.T) {
+func TestConfiguration(t *testing.T) {
 	type contextKey struct{}
 	ctx := context.WithValue(t.Context(), contextKey{}, "config")
 	data := []byte{0x02, 0x2a, 0x86, 0x01, 0x10, 0x00, 0x02, 0x01, 0x02, 0x37}
@@ -113,7 +113,7 @@ func TestConfig(t *testing.T) {
 	}}
 	device := &Device{card: card}
 
-	config, err := device.Config(ctx)
+	config, err := device.Configuration(ctx)
 	require.NoError(t, err)
 
 	assert.Equal(t, data, config.Raw)
@@ -128,26 +128,27 @@ func TestConfig(t *testing.T) {
 	}
 }
 
-func TestConfigRejectsFailedSelect(t *testing.T) {
+func TestConfigurationRejectsFailedSelect(t *testing.T) {
 	card := &scriptedCard{steps: []cardStep{
 		{command: selectOTPAPDU, response: statusResponse(0x6a82)},
 	}}
 	device := &Device{card: card}
 
-	_, err := device.Config(t.Context())
+	_, err := device.Configuration(t.Context())
 
-	var statusErr *apdu.StatusError
+	var statusErr *iso7816.APDUError
 	require.ErrorAs(t, err, &statusErr)
+	require.ErrorIs(t, err, ErrOTPApplicationNotAvailable)
 	assert.Contains(t, err.Error(), "select Token2 OTP application")
 	assert.Empty(t, card.steps)
 	assert.Len(t, card.sent, 1)
 }
 
-func TestConfigRejectsFailedTransaction(t *testing.T) {
+func TestConfigurationRejectsFailedTransaction(t *testing.T) {
 	want := errors.New("transaction unavailable")
 	card := &scriptedCard{beginErr: want}
 
-	_, err := (&Device{card: card}).Config(t.Context())
+	_, err := (&Device{card: card}).Configuration(t.Context())
 
 	require.ErrorIs(t, err, want)
 	assert.Equal(t, 1, card.begins)
@@ -155,7 +156,7 @@ func TestConfigRejectsFailedTransaction(t *testing.T) {
 	assert.Empty(t, card.sent)
 }
 
-func TestConfigPropagatesEndTransactionFailure(t *testing.T) {
+func TestConfigurationPropagatesEndTransactionFailure(t *testing.T) {
 	want := errors.New("end transaction failed")
 	card := &scriptedCard{
 		steps: []cardStep{
@@ -165,7 +166,7 @@ func TestConfigPropagatesEndTransactionFailure(t *testing.T) {
 		endErr: want,
 	}
 
-	_, err := (&Device{card: card}).Config(t.Context())
+	_, err := (&Device{card: card}).Configuration(t.Context())
 
 	require.ErrorIs(t, err, want)
 	assert.Equal(t, 1, card.begins)
@@ -187,7 +188,7 @@ func TestStatusErrors(t *testing.T) {
 				{command: configAPDU, response: statusResponse(0x6985)},
 			},
 			call: func(d *Device) error {
-				_, err := d.Config(t.Context())
+				_, err := d.Configuration(t.Context())
 				return err
 			},
 		},
@@ -198,7 +199,7 @@ func TestStatusErrors(t *testing.T) {
 				{command: selectOTPAPDU, response: statusResponse(0x6a82)},
 			},
 			call: func(d *Device) error {
-				_, err := d.SerialNumber(t.Context())
+				_, err := d.DeviceInfo(t.Context())
 				return err
 			},
 		},
@@ -211,7 +212,7 @@ func TestStatusErrors(t *testing.T) {
 				{command: selectFIDOAPDU, response: statusResponse(0x6a82)},
 			},
 			call: func(d *Device) error {
-				_, err := d.SerialNumber(t.Context())
+				_, err := d.DeviceInfo(t.Context())
 				return err
 			},
 		},
@@ -223,7 +224,7 @@ func TestStatusErrors(t *testing.T) {
 				{command: serialAPDU, response: statusResponse(0x6a80)},
 			},
 			call: func(d *Device) error {
-				_, err := d.SerialNumber(t.Context())
+				_, err := d.DeviceInfo(t.Context())
 				return err
 			},
 		},
@@ -234,7 +235,7 @@ func TestStatusErrors(t *testing.T) {
 			card := &scriptedCard{steps: tt.steps}
 			err := tt.call(&Device{card: card})
 
-			var statusErr *apdu.StatusError
+			var statusErr *iso7816.APDUError
 			require.ErrorAs(t, err, &statusErr)
 			assert.Contains(t, err.Error(), tt.operation)
 			assert.Empty(t, card.steps)
@@ -242,7 +243,7 @@ func TestStatusErrors(t *testing.T) {
 	}
 }
 
-func TestSerialNumberSequence(t *testing.T) {
+func TestDeviceInfoSequence(t *testing.T) {
 	serialData := []byte{0xd1, 0x0e, '7', '2', '1', '0', '2', '9', '3', '5', '7', '8', '0', '5', '2', '8'}
 	card := &scriptedCard{steps: []cardStep{
 		{command: selectOTPAPDU, response: successfulResponse(nil)},
@@ -250,16 +251,17 @@ func TestSerialNumberSequence(t *testing.T) {
 	}}
 	device := &Device{card: card}
 
-	serial, err := device.SerialNumber(t.Context())
+	info, err := device.DeviceInfo(t.Context())
 	require.NoError(t, err)
 
-	assert.Equal(t, "72102935780528", serial)
+	assert.Equal(t, "72102935780528", info.SerialNumber)
+	assert.Equal(t, "Mini USB-C PIN+", info.FormFactor)
 	assert.Empty(t, card.steps)
 	assert.Equal(t, 1, card.begins)
 	assert.Equal(t, 1, card.ends)
 }
 
-func TestSerialNumberSequenceFallsBackToFIDO(t *testing.T) {
+func TestDeviceInfoSequenceFallsBackToFIDO(t *testing.T) {
 	serialData := []byte{0xd1, 0x0e, '7', '6', '1', '0', '5', '0', '4', '4', '9', '3', '5', '3', '5', '6'}
 	card := &scriptedCard{steps: []cardStep{
 		{command: selectOTPAPDU, response: successfulResponse(nil)},
@@ -270,16 +272,17 @@ func TestSerialNumberSequenceFallsBackToFIDO(t *testing.T) {
 	}}
 	device := &Device{card: card}
 
-	serial, err := device.SerialNumber(t.Context())
+	info, err := device.DeviceInfo(t.Context())
 	require.NoError(t, err)
 
-	assert.Equal(t, "76105044935356", serial)
+	assert.Equal(t, "76105044935356", info.SerialNumber)
+	assert.Equal(t, "USB-A PIN+ NFC", info.FormFactor)
 	assert.Empty(t, card.steps)
 	assert.Equal(t, 1, card.begins)
 	assert.Equal(t, 1, card.ends)
 }
 
-func TestATRInfo(t *testing.T) {
+func TestATR(t *testing.T) {
 	atr := []byte{
 		0x3b, 0xff, 0x18, 0x00, 0x00, 0x10, 0x80,
 		0x86, 0x8e, 0x00, 0x16, 0x60, 0x00, 0x60,
@@ -288,7 +291,7 @@ func TestATRInfo(t *testing.T) {
 	card := &scriptedCard{status: &nativepcsc.CardStatus{ATR: atr}}
 	device := &Device{card: card}
 
-	info, err := device.ATRInfo(t.Context())
+	info, err := device.ATR(t.Context())
 	require.NoError(t, err)
 
 	assert.Equal(t, uint16(0x0016), info.ProductID)

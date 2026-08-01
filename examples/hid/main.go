@@ -25,7 +25,7 @@ func main() {
 }
 
 func run(ctx context.Context) (err error) {
-	device, path, serialNumber, err := openDevice(ctx, os.Getenv("TOKEN2_HID_PATH"))
+	device, path, info, err := openDevice(ctx, os.Getenv("TOKEN2_HID_PATH"))
 	if err != nil {
 		return err
 	}
@@ -34,37 +34,40 @@ func run(ctx context.Context) (err error) {
 	}()
 
 	fmt.Printf("HID path: %s\n", path)
-	fmt.Printf("Serial number: %s\n", serialNumber)
-	if identity, ok := token2.Identify(serialNumber); ok {
-		fmt.Printf("Model: %s\n", identity.Model.DisplayName())
+	fmt.Printf("Serial number: %s\n", info.SerialNumber)
+	if name := info.ModelName(""); name != "" {
+		fmt.Printf("Model: %s\n", name)
 	}
 
 	return nil
 }
 
-func openDevice(ctx context.Context, path string) (*token2hid.Device, string, string, error) {
+func openDevice(
+	ctx context.Context,
+	path string,
+) (*token2hid.Device, string, token2.DeviceInfo, error) {
 	if path != "" {
 		device, err := token2hid.Open(path)
 		if err != nil {
-			return nil, "", "", fmt.Errorf("open HID path %q: %w", path, err)
+			return nil, "", token2.DeviceInfo{}, fmt.Errorf("open HID path %q: %w", path, err)
 		}
 
-		serialNumber, err := device.SerialNumber(ctx)
+		info, err := device.DeviceInfo(ctx)
 		if err != nil {
-			return nil, "", "", errors.Join(
-				fmt.Errorf("read serial number from HID path %q: %w", path, err),
+			return nil, "", token2.DeviceInfo{}, errors.Join(
+				fmt.Errorf("read device information from HID path %q: %w", path, err),
 				device.Close(),
 			)
 		}
-		return device, path, serialNumber, nil
+		return device, path, info, nil
 	}
 
 	for info, err := range githubhid.Enumerate(githubhid.WithVendorID(token2VendorID)) {
 		if err != nil {
-			return nil, "", "", fmt.Errorf("enumerate HID devices: %w", err)
+			return nil, "", token2.DeviceInfo{}, fmt.Errorf("enumerate HID devices: %w", err)
 		}
 		if err := ctx.Err(); err != nil {
-			return nil, "", "", err
+			return nil, "", token2.DeviceInfo{}, err
 		}
 		if info.UsagePage == fidoUsagePage && info.Usage == fidoUsage {
 			continue
@@ -74,14 +77,14 @@ func openDevice(ctx context.Context, path string) (*token2hid.Device, string, st
 		if err != nil {
 			continue
 		}
-		serialNumber, serialErr := device.SerialNumber(ctx)
-		if serialErr != nil {
+		deviceInfo, infoErr := device.DeviceInfo(ctx)
+		if infoErr != nil {
 			_ = device.Close()
 			continue
 		}
 
-		return device, info.Path, serialNumber, nil
+		return device, info.Path, deviceInfo, nil
 	}
 
-	return nil, "", "", errors.New("no Token2 feature HID interface found")
+	return nil, "", token2.DeviceInfo{}, errors.New("no Token2 feature HID interface found")
 }

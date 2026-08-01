@@ -37,7 +37,7 @@ func (d *scriptedDevice) Close() error {
 	return nil
 }
 
-func TestATRInfo(t *testing.T) {
+func TestATR(t *testing.T) {
 	type contextKey struct{}
 	atrCtx := context.WithValue(t.Context(), contextKey{}, "atr")
 	cid := lowlevel.ChannelID{1, 2, 3, 4}
@@ -50,7 +50,7 @@ func TestATRInfo(t *testing.T) {
 	device := newScriptedDevice(t, responseBytes(t, cid, CommandGetATR, atr))
 	transport := &Device{transport: lowlevel.NewTransport(device, cid)}
 
-	info, err := transport.ATRInfo(atrCtx)
+	info, err := transport.ATR(atrCtx)
 	require.NoError(t, err)
 	assert.Equal(t, uint16(0x0016), info.ProductID)
 	assert.Equal(t, "35780528", info.SerialSuffix)
@@ -64,12 +64,12 @@ func TestATRInfo(t *testing.T) {
 	assert.Equal(t, "atr", device.writeContexts[0].Value(contextKey{}))
 }
 
-func TestATRInfoRejectsMalformedResponse(t *testing.T) {
+func TestATRRejectsMalformedResponse(t *testing.T) {
 	cid := lowlevel.ChannelID{1, 2, 3, 4}
 	device := newScriptedDevice(t, responseBytes(t, cid, CommandGetATR, []byte{1, 2, 3}))
 	transport := &Device{transport: lowlevel.NewTransport(device, cid)}
 
-	_, err := transport.ATRInfo(t.Context())
+	_, err := transport.ATR(t.Context())
 
 	assert.ErrorIs(t, err, token2.ErrInvalidATR)
 }

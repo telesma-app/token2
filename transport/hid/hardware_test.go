@@ -4,7 +4,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/go-ctap/token2"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,10 +19,8 @@ func TestHardware(t *testing.T) {
 		require.NoError(t, device.Close())
 	})
 
-	serialNumber, err := device.SerialNumber(t.Context())
+	info, err := device.DeviceInfo(t.Context())
 	require.NoError(t, err)
-	require.NotEmpty(t, serialNumber)
-
-	_, identified := token2.Identify(serialNumber)
-	require.True(t, identified)
+	require.NotEmpty(t, info.SerialNumber)
+	require.NotEmpty(t, info.ModelName(""))
 }

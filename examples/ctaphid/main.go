@@ -37,7 +37,7 @@ func run(ctx context.Context) (err error) {
 		err = errors.Join(err, device.Close())
 	}()
 
-	info, err := device.ATRInfo(ctx)
+	info, err := device.ATR(ctx)
 	if err != nil {
 		return fmt.Errorf("read ATR: %w", err)
 	}

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/go-ctap/token2/apdu"
+	"github.com/go-ctap/iso7816"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -113,17 +113,17 @@ func TestSetReaderSettingErrors(t *testing.T) {
 			response: []byte{0x90},
 			check: func(t *testing.T, err error) {
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), "APDU response is 1 bytes")
+				assert.Contains(t, err.Error(), "invalid response APDU")
 			},
 		},
 		{
 			name:     "status",
 			response: statusResponse(0x6d00),
 			check: func(t *testing.T, err error) {
-				var statusErr *apdu.StatusError
+				var statusErr *iso7816.APDUError
 				require.ErrorAs(t, err, &statusErr)
-				assert.Equal(t, uint16(0x6d00), statusErr.SW)
-				assert.Equal(t, "set Token2 reader sound level", statusErr.Operation)
+				assert.Equal(t, iso7816.StatusWord(0x6d00), statusErr.StatusWord())
+				assert.Contains(t, err.Error(), "set Token2 reader sound level")
 			},
 		},
 	}

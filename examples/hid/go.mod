@@ -9,6 +9,7 @@ require (
 
 require (
 	github.com/ebitengine/purego v0.10.2 // indirect
+	github.com/go-ctap/iso7816 v0.1.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
 )

@@ -4,6 +4,8 @@ github.com/ebitengine/purego v0.10.2 h1:W809HbnvzAxgdm+aOvlSekrM16wGCdT/e76+9tS7
 github.com/ebitengine/purego v0.10.2/go.mod h1:iIjxzd6CiRiOG0UyXP+V1+jWqUXVjPKLAI0mRfJZTmQ=
 github.com/go-ctap/hid v0.10.1 h1:mwGe/c5H4e7mzsVeC14lIucVY7piVWIPG6RV3CJYPQk=
 github.com/go-ctap/hid v0.10.1/go.mod h1:JDxD3E+4ixQRyLWk6aG0sa+lr0CFs3tiSB9LGFHS50E=
+github.com/go-ctap/iso7816 v0.1.0 h1:6zDOCAaY/ABWuBfBiW2pBB9VE5LR+iwHiLKSns88bjI=
+github.com/go-ctap/iso7816 v0.1.0/go.mod h1:+oFhICdRfaUC7NU/0+pV1OKfF2hn3ulr0rdQ0rd8EKw=
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 h1:Jamvg5psRIccs7FGNTlIRMkT8wgtp5eCXdBlqhYGL6U=
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=

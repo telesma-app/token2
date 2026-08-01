@@ -5,6 +5,7 @@ go 1.26.3
 require (
 	github.com/go-ctap/ctap v0.35.0
 	github.com/go-ctap/hid v0.10.1
+	github.com/go-ctap/iso7816 v0.1.0
 	github.com/go-ctap/pcsc v0.6.0
 	github.com/stretchr/testify v1.11.1
 )

@@ -1,32 +1,11 @@
 package token2
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
 	"github.com/go-ctap/token2/internal/protocol"
 )
-
-// Device is the lifecycle contract implemented by Token2 transport devices.
-// Transport-specific capabilities are described by capability interfaces such
-// as SerialNumberDevice and ATRDevice.
-type Device interface {
-	Close() error
-}
-
-// SerialNumberDevice is a Device capable of returning the full Token2 serial
-// number.
-type SerialNumberDevice interface {
-	Device
-	SerialNumber(context.Context) (string, error)
-}
-
-// ATRDevice is a Device capable of returning Token2 ATR information.
-type ATRDevice interface {
-	Device
-	ATRInfo(context.Context) (ATRInfo, error)
-}
 
 // ErrInvalidSerialResponse reports a malformed serial-number response received
 // from a Token2 device.

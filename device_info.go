@@ -1,36 +1,73 @@
 package token2
 
 import (
-	"slices"
 	"strconv"
 	"strings"
 )
 
-// Model describes a Token2 hardware model identified by either a serial-number
-// prefix or an inclusive serial-number range.
-type Model struct {
-	Release    string
-	FormFactor string
-	Branding   string
-	Prefix     string
+// DeviceInfo contains normalized, transport-neutral information about a
+// Token2 device. Interface state and capability fields are meaningful when
+// their corresponding Known field is true.
+type DeviceInfo struct {
+	SerialNumber string `json:"serialNumber"`
+	Release      string `json:"release"`
+	FormFactor   string `json:"formFactor"`
+	Branding     string `json:"branding"`
+	ProductID    uint16 `json:"productId,omitempty"`
 
-	SerialFrom uint64
-	SerialTo   uint64
+	Appearance  *Appearance  `json:"appearance,omitempty"`
+	FIDOVersion *FIDOVersion `json:"fidoVersion,omitempty"`
+
+	InterfaceStateKnown  bool `json:"interfaceStateKnown"`
+	FIDOEnabled          bool `json:"fidoEnabled"`
+	HOTPKeystrokeEnabled bool `json:"hotpKeystrokeEnabled"`
+	CCIDEnabled          bool `json:"ccidEnabled"`
+
+	CapabilitiesKnown               bool `json:"capabilitiesKnown"`
+	FIDOPINSet                      bool `json:"fidoPINSet"`
+	FIDOPINLocked                   bool `json:"fidoPINLocked"`
+	SupportsHOTP                    bool `json:"supportsHOTP"`
+	SupportsTOTP                    bool `json:"supportsTOTP"`
+	SupportsNFC                     bool `json:"supportsNFC"`
+	SupportsCCID                    bool `json:"supportsCCID"`
+	SupportsFIDO21                  bool `json:"supportsFIDO21"`
+	HasFingerprintSensor            bool `json:"hasFingerprintSensor"`
+	SupportsFingerprintRegistration bool `json:"supportsFingerprintRegistration"`
+	SupportsMandatoryFingerprint    bool `json:"supportsMandatoryFingerprint"`
+	OTPRequiresFingerprint          bool `json:"otpRequiresFingerprint"`
+	SupportsButtonHOTP              bool `json:"supportsButtonHOTP"`
+	ButtonHOTPConfigured            bool `json:"buttonHOTPConfigured"`
+	ButtonHOTPSendsEnter            bool `json:"buttonHOTPSendsEnter"`
+	ButtonHOTPRequiresLongPress     bool `json:"buttonHOTPRequiresLongPress"`
+	ButtonHOTPUsesNumericKeypad     bool `json:"buttonHOTPUsesNumericKeypad"`
 }
 
-// DisplayName returns the canonical human-readable name of the model.
-func (m Model) DisplayName() string {
+// ModelName returns the canonical model name derived from the serial number.
+// fallback is returned when the model is not in the built-in catalog.
+func (info DeviceInfo) ModelName(fallback string) string {
 	parts := make([]string, 0, 3)
-	for _, part := range []string{m.Branding, m.FormFactor} {
+	for _, part := range []string{info.Branding, info.FormFactor} {
 		if part = strings.TrimSpace(part); part != "" {
 			parts = append(parts, part)
 		}
+	}
+	if len(parts) == 0 {
+		return fallback
 	}
 
 	return strings.Join(parts, " ")
 }
 
-var models = []Model{
+type model struct {
+	Release    string
+	FormFactor string
+	Branding   string
+	Prefix     string
+	SerialFrom uint64
+	SerialTo   uint64
+}
+
+var models = []model{
 	{Release: "R1", FormFactor: "USB-A NFC", Branding: "Token2", Prefix: "86105"},
 	{Release: "R1", FormFactor: "USB-C NFC", Branding: "Token2", Prefix: "86104"},
 	{Release: "R1", FormFactor: "Dual NFC", Branding: "Token2", Prefix: "86103"},
@@ -79,59 +116,43 @@ var models = []Model{
 	{Release: "R3.4", FormFactor: "Mini USB-C PIN+ PIV+ OTP Protection", Prefix: "65111"},
 }
 
-// Models returns the built-in Token2 model catalog.
-func Models() []Model {
-	return slices.Clone(models)
-}
-
-// Identity contains the model information derived from a full Token2 serial
-// number. Prefix, CheckDigit and Suffix are empty for range-based models.
-type Identity struct {
-	SerialNumber string
-	Prefix       string
-	CheckDigit   byte
-	Suffix       string
-	Model        Model
-}
-
-// Identify looks up a full Token2 serial number in the built-in model catalog.
-func Identify(serialNumber string) (Identity, bool) {
-	identity := Identity{SerialNumber: serialNumber}
+// Identify returns device information derived from a full Token2 serial
+// number. The boolean reports whether the model is in the built-in catalog.
+func Identify(serialNumber string) (DeviceInfo, bool) {
+	info := DeviceInfo{SerialNumber: serialNumber}
 	if len(serialNumber) < 7 {
-		return identity, false
+		return info, false
 	}
 
 	for i := range len(serialNumber) {
 		if serialNumber[i] < '0' || serialNumber[i] > '9' {
-			return identity, false
+			return info, false
 		}
 	}
 
 	serial, err := strconv.ParseUint(serialNumber, 10, 64)
 	if err != nil {
-		return identity, false
+		return info, false
 	}
 
-	for _, model := range models {
-		if model.SerialFrom != 0 && serial >= model.SerialFrom && serial <= model.SerialTo {
-			identity.Model = model
-
-			return identity, true
+	for _, candidate := range models {
+		if candidate.SerialFrom != 0 && serial >= candidate.SerialFrom && serial <= candidate.SerialTo {
+			info.Release = candidate.Release
+			info.FormFactor = candidate.FormFactor
+			info.Branding = candidate.Branding
+			return info, true
 		}
 	}
 
 	prefix := serialNumber[:5]
-	identity.Prefix = prefix
-	identity.CheckDigit = serialNumber[5]
-	identity.Suffix = serialNumber[6:]
-
-	for _, model := range models {
-		if model.Prefix == prefix {
-			identity.Model = model
-
-			return identity, true
+	for _, candidate := range models {
+		if candidate.Prefix == prefix {
+			info.Release = candidate.Release
+			info.FormFactor = candidate.FormFactor
+			info.Branding = candidate.Branding
+			return info, true
 		}
 	}
 
-	return identity, false
+	return info, false
 }

@@ -21,8 +21,6 @@ type Device struct {
 	transport *ctaphid.Transport
 }
 
-var _ token2.ATRDevice = (*Device)(nil)
-
 // VendorTransport is the CTAPHID vendor-command capability required by
 // Token2's ATR command.
 type VendorTransport interface {
@@ -52,17 +50,18 @@ func Open(ctx context.Context, path string) (*Device, error) {
 	return &Device{transport: transport}, nil
 }
 
-// ATRInfo returns the ATR supplied by Token2 CTAPHID vendor command 0x41.
-func (d *Device) ATRInfo(ctx context.Context) (token2.ATRInfo, error) {
+// ATR returns the answer-to-reset supplied by Token2 CTAPHID vendor command
+// 0x41.
+func (d *Device) ATR(ctx context.Context) (token2.ATR, error) {
 	return ReadATR(ctx, d.transport)
 }
 
 // ReadATR reads and parses Token2 ATR identity through an existing CTAPHID
 // vendor-command channel. The caller retains ownership of transport.
-func ReadATR(ctx context.Context, transport VendorTransport) (token2.ATRInfo, error) {
+func ReadATR(ctx context.Context, transport VendorTransport) (token2.ATR, error) {
 	response, err := transport.Vendor(ctx, CommandGetATR, nil)
 	if err != nil {
-		return token2.ATRInfo{}, fmt.Errorf("read Token2 ATR over CTAPHID: %w", err)
+		return token2.ATR{}, fmt.Errorf("read Token2 ATR over CTAPHID: %w", err)
 	}
 
 	return token2.ParseATR(response.Data)

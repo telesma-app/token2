@@ -1,7 +1,7 @@
 // Package protocol defines the Token2 commands shared by transport adapters.
 package protocol
 
-import "github.com/go-ctap/token2/apdu"
+import "github.com/go-ctap/iso7816"
 
 const (
 	classISO          = 0x00
@@ -27,8 +27,8 @@ const (
 
 // SelectOTPCommand selects the Token2 OTP application used by configuration
 // commands.
-func SelectOTPCommand() apdu.Command {
-	return apdu.Command{
+func SelectOTPCommand() iso7816.Command {
+	return iso7816.Command{
 		CLA:  classISO,
 		INS:  instructionSelect,
 		P1:   0x04,
@@ -38,8 +38,8 @@ func SelectOTPCommand() apdu.Command {
 
 // SelectFIDOCommand selects the standard FIDO application used by the Token2
 // serial-number command over PC/SC.
-func SelectFIDOCommand() apdu.Command {
-	return apdu.Command{
+func SelectFIDOCommand() iso7816.Command {
+	return iso7816.Command{
 		CLA:  classISO,
 		INS:  instructionSelect,
 		P1:   0x04,
@@ -47,9 +47,9 @@ func SelectFIDOCommand() apdu.Command {
 	}
 }
 
-// ConfigCommand reads the Token2 device configuration.
-func ConfigCommand() apdu.Command {
-	return apdu.Command{
+// ConfigurationCommand reads the Token2 device configuration.
+func ConfigurationCommand() iso7816.Command {
+	return iso7816.Command{
 		CLA:  classToken2,
 		INS:  instructionConfiguration,
 		P1:   configurationRead,
@@ -59,26 +59,26 @@ func ConfigCommand() apdu.Command {
 
 // SerialNumberCommand reads the full device serial number. HID uses extended
 // APDU encoding while PC/SC uses short encoding.
-func SerialNumberCommand(extended bool) apdu.Command {
+func SerialNumberCommand(encoding iso7816.Encoding) iso7816.Command {
 	request := make([]byte, 2+serialRequestLength)
 	request[0] = SerialResponseTag
 	request[1] = serialRequestLength
 
-	return apdu.Command{
+	return iso7816.Command{
 		CLA:      classToken2,
 		INS:      instructionDeviceInfo,
 		Data:     request,
-		Extended: extended,
+		Encoding: encoding,
 	}
 }
 
 // ReaderSoundCommand configures the Token2 reader sound level.
-func ReaderSoundCommand(level byte) apdu.Command {
+func ReaderSoundCommand(level byte) iso7816.Command {
 	return readerSettingCommand(readerSettingSound, level)
 }
 
 // ReaderNFCCommand enables or disables the Token2 reader NFC interface.
-func ReaderNFCCommand(enabled bool) apdu.Command {
+func ReaderNFCCommand(enabled bool) iso7816.Command {
 	value := byte(0x01)
 	if enabled {
 		value = 0x00
@@ -87,8 +87,8 @@ func ReaderNFCCommand(enabled bool) apdu.Command {
 	return readerSettingCommand(readerSettingNFC, value)
 }
 
-func readerSettingCommand(setting, value byte) apdu.Command {
-	return apdu.Command{
+func readerSettingCommand(setting, value byte) iso7816.Command {
+	return iso7816.Command{
 		CLA: classToken2Reader,
 		INS: instructionReaderVendor,
 		P1:  readerMagicP1,

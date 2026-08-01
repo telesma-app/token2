@@ -35,25 +35,25 @@ func run(ctx context.Context) (err error) {
 
 	fmt.Printf("PC/SC reader: %s\n", reader)
 
-	serialNumber, err := device.SerialNumber(ctx)
+	info, err := device.DeviceInfo(ctx)
 	if err != nil {
-		fmt.Printf("Serial number: unsupported or failed: %v\n", err)
+		fmt.Printf("Device information: unsupported or failed: %v\n", err)
 	} else {
-		printIdentity(serialNumber)
+		printDeviceInfo(info)
 	}
 
-	atr, err := device.ATRInfo(ctx)
+	atr, err := device.ATR(ctx)
 	if err != nil {
 		fmt.Printf("ATR identity: unsupported or failed: %v\n", err)
 	} else {
 		printATR(atr)
 	}
 
-	config, err := device.Config(ctx)
+	config, err := device.Configuration(ctx)
 	if err != nil {
 		fmt.Printf("Configuration: unsupported or failed: %v\n", err)
 	} else {
-		printConfig(config)
+		printConfiguration(config)
 	}
 
 	return nil
@@ -75,20 +75,20 @@ func findReader(filter string) (string, error) {
 	return "", fmt.Errorf("no PC/SC reader matching %q", filter)
 }
 
-func printATR(info token2.ATRInfo) {
+func printATR(info token2.ATR) {
 	fmt.Printf("ATR: %x\n", info.Raw)
 	fmt.Printf("Product ID: %04x\n", info.ProductID)
 	fmt.Printf("Serial suffix: %s\n", info.SerialSuffix)
 }
 
-func printIdentity(serialNumber string) {
-	fmt.Printf("Serial number: %s\n", serialNumber)
-	if identity, ok := token2.Identify(serialNumber); ok {
-		fmt.Printf("Model: %s\n", identity.Model.DisplayName())
+func printDeviceInfo(info token2.DeviceInfo) {
+	fmt.Printf("Serial number: %s\n", info.SerialNumber)
+	if name := info.ModelName(""); name != "" {
+		fmt.Printf("Model: %s\n", name)
 	}
 }
 
-func printConfig(config token2.Config) {
+func printConfiguration(config token2.Configuration) {
 	if len(config.Raw) == 1 {
 		fmt.Printf("Configuration: legacy transfer type=%02x\n", config.TransferType)
 		return
@@ -102,12 +102,8 @@ func printConfig(config token2.Config) {
 		config.FIDOVersion.Patch,
 	)
 	fmt.Printf(
-		"Capabilities: hotp=%t totp=%t nfc=%t ccid=%t fingerprint=%t fido2.1=%t\n",
-		config.HOTPSupported(),
-		config.TOTPSupported(),
-		config.NFCSupported(),
-		config.CCIDSupported(),
-		config.FingerprintSensorPresent(),
-		config.FIDO21Supported(),
+		"Capability masks: device=%02x extension=%02x\n",
+		config.DeviceConfiguration,
+		config.DeviceExtension,
 	)
 }

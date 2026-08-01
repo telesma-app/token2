@@ -4,23 +4,25 @@ package pcsc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 
+	"github.com/go-ctap/iso7816"
 	nativepcsc "github.com/go-ctap/pcsc"
 	"github.com/go-ctap/token2"
-	"github.com/go-ctap/token2/apdu"
 	"github.com/go-ctap/token2/internal/protocol"
 )
 
-const statusInstructionNotSupported = 0x6d00
+const statusInstructionNotSupported iso7816.StatusWord = 0x6d00
 
-var (
-	_ token2.SerialNumberDevice = (*Device)(nil)
-	_ token2.ATRDevice          = (*Device)(nil)
+// ErrOTPApplicationNotAvailable reports that the selected card does not expose
+// the Token2 OTP application used for device information.
+var ErrOTPApplicationNotAvailable = errors.New(
+	"token2 pcsc: OTP application not available",
 )
 
 type card interface {
-	apdu.Transceiver
+	iso7816.Card
 	BeginTransaction(context.Context) error
 	EndTransaction(nativepcsc.Disposition) error
 	Status() (*nativepcsc.CardStatus, error)
@@ -51,115 +53,151 @@ func (d *Device) Close() error {
 	return d.card.Close()
 }
 
-// ATRInfo returns information encoded in the device ATR.
-func (d *Device) ATRInfo(_ context.Context) (token2.ATRInfo, error) {
+// ATR returns information encoded in the device answer-to-reset.
+func (d *Device) ATR(_ context.Context) (token2.ATR, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	status, err := d.card.Status()
 	if err != nil {
-		return token2.ATRInfo{}, err
+		return token2.ATR{}, err
 	}
 
 	return token2.ParseATR(status.ATR)
 }
 
-// Config returns the Token2 device configuration.
-func (d *Device) Config(ctx context.Context) (config token2.Config, err error) {
+// Configuration returns the Token2 device configuration.
+func (d *Device) Configuration(
+	ctx context.Context,
+) (config token2.Configuration, err error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	if err := d.card.BeginTransaction(ctx); err != nil {
-		return token2.Config{}, err
+		return token2.Configuration{}, err
 	}
 	defer func() {
 		err = errors.Join(err, d.card.EndTransaction(nativepcsc.DispositionLeaveCard))
 	}()
 
-	return d.config(ctx)
+	return d.configuration(ctx)
 }
 
-func (d *Device) config(ctx context.Context) (token2.Config, error) {
+func (d *Device) configuration(ctx context.Context) (token2.Configuration, error) {
 	if err := d.selectOTP(ctx); err != nil {
-		return token2.Config{}, err
+		return token2.Configuration{}, err
 	}
 
-	return d.readConfig(ctx)
+	return d.readConfiguration(ctx)
 }
 
 func (d *Device) selectOTP(ctx context.Context) error {
-	response, err := apdu.Exchange(ctx, d.card, protocol.SelectOTPCommand())
+	response, err := exchange(ctx, d.card, protocol.SelectOTPCommand())
 	if err != nil {
 		return err
 	}
-	if err := response.Err("select Token2 OTP application"); err != nil {
-		return err
+	if response.Status == 0x6a82 {
+		return fmt.Errorf(
+			"select Token2 OTP application: %w: %w",
+			ErrOTPApplicationNotAvailable,
+			response.APDUError(),
+		)
 	}
 
-	return nil
+	return responseError("select Token2 OTP application", response)
 }
 
 func (d *Device) selectFIDO(ctx context.Context) error {
-	response, err := apdu.Exchange(ctx, d.card, protocol.SelectFIDOCommand())
+	response, err := exchange(ctx, d.card, protocol.SelectFIDOCommand())
 	if err != nil {
 		return err
 	}
-	if err := response.Err("select FIDO application"); err != nil {
-		return err
-	}
-
-	return nil
+	return responseError("select FIDO application", response)
 }
 
-func (d *Device) readConfig(ctx context.Context) (token2.Config, error) {
-	response, err := apdu.Exchange(ctx, d.card, protocol.ConfigCommand())
+func (d *Device) readConfiguration(ctx context.Context) (token2.Configuration, error) {
+	response, err := exchange(ctx, d.card, protocol.ConfigurationCommand())
 	if err != nil {
-		return token2.Config{}, err
+		return token2.Configuration{}, err
 	}
-	if err := response.Err("read Token2 configuration"); err != nil {
-		return token2.Config{}, err
+	if err := responseError("read Token2 configuration", response); err != nil {
+		return token2.Configuration{}, err
 	}
 
-	return token2.ParseConfig(response.Data)
+	return token2.ParseConfiguration(response.Data)
 }
 
-func (d *Device) readSerialNumber(ctx context.Context) (apdu.Response, error) {
-	return apdu.Exchange(ctx, d.card, protocol.SerialNumberCommand(false))
+func (d *Device) readSerialNumber(ctx context.Context) (iso7816.Response, error) {
+	return exchange(
+		ctx,
+		d.card,
+		protocol.SerialNumberCommand(iso7816.EncodingShort),
+	)
 }
 
-// SerialNumber returns the full device serial number.
-func (d *Device) SerialNumber(ctx context.Context) (serialNumber string, err error) {
+// DeviceInfo returns transport-neutral information derived from the device
+// serial number.
+func (d *Device) DeviceInfo(
+	ctx context.Context,
+) (info token2.DeviceInfo, err error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	if err := d.card.BeginTransaction(ctx); err != nil {
-		return "", err
+		return token2.DeviceInfo{}, err
 	}
 	defer func() {
 		err = errors.Join(err, d.card.EndTransaction(nativepcsc.DispositionLeaveCard))
 	}()
 
 	if err := d.selectOTP(ctx); err != nil {
-		return "", err
+		return token2.DeviceInfo{}, err
 	}
 
 	response, err := d.readSerialNumber(ctx)
 	if err != nil {
-		return "", err
+		return token2.DeviceInfo{}, err
 	}
-	if response.SW == statusInstructionNotSupported {
+	if response.Status == statusInstructionNotSupported {
 		if err := d.selectFIDO(ctx); err != nil {
-			return "", err
+			return token2.DeviceInfo{}, err
 		}
 
 		response, err = d.readSerialNumber(ctx)
 		if err != nil {
-			return "", err
+			return token2.DeviceInfo{}, err
 		}
 	}
-	if err := response.Err("read serial number"); err != nil {
-		return "", err
+	if err := responseError("read serial number", response); err != nil {
+		return token2.DeviceInfo{}, err
 	}
 
-	return token2.ParseSerialNumber(response.Data)
+	serialNumber, err := token2.ParseSerialNumber(response.Data)
+	if err != nil {
+		return token2.DeviceInfo{}, err
+	}
+
+	info, _ = token2.Identify(serialNumber)
+	return info, nil
+}
+
+func exchange(
+	ctx context.Context,
+	card iso7816.Card,
+	command iso7816.Command,
+) (iso7816.Response, error) {
+	return iso7816.Exchange(
+		ctx,
+		card,
+		command,
+		iso7816.WithMoreDataStatusBytes(0x61, 0x9f),
+	)
+}
+
+func responseError(operation string, response iso7816.Response) error {
+	if err := response.APDUError(); err != nil {
+		return fmt.Errorf("%s: %w", operation, err)
+	}
+
+	return nil
 }

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/go-ctap/token2/apdu"
+	"github.com/go-ctap/iso7816"
 	"github.com/go-ctap/token2/internal/protocol"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -200,7 +200,7 @@ func TestDeviceClose(t *testing.T) {
 	assert.True(t, script.closed)
 }
 
-func TestDeviceSerialNumber(t *testing.T) {
+func TestDeviceInfo(t *testing.T) {
 	const serial = "0123456789abcdef"
 	payload := append([]byte{0xd1, byte(len(serial))}, serial...)
 	payload = append(payload, 0x90, 0x00)
@@ -208,26 +208,27 @@ func TestDeviceSerialNumber(t *testing.T) {
 	script := &featureScript{responses: []featureResponse{{report: response, n: len(response)}}}
 	device := &Device{device: script}
 
-	got, err := device.SerialNumber(t.Context())
+	info, err := device.DeviceInfo(t.Context())
 	require.NoError(t, err)
 
-	assert.Equal(t, serial, got)
+	assert.Equal(t, serial, info.SerialNumber)
 	require.Len(t, script.sent, 1)
-	command := protocol.SerialNumberCommand(true).Bytes()
+	command, err := protocol.SerialNumberCommand(iso7816.EncodingExtended).MarshalBinary()
+	require.NoError(t, err)
 	assert.Equal(t, command, script.sent[0][4:4+len(command)])
 }
 
-func TestDeviceSerialNumberStatusError(t *testing.T) {
+func TestDeviceInfoStatusError(t *testing.T) {
 	response := responseReport(0, false, []byte{0x6a, 0x82})
 	script := &featureScript{responses: []featureResponse{{report: response, n: len(response)}}}
 	device := &Device{device: script}
 
-	_, err := device.SerialNumber(t.Context())
+	_, err := device.DeviceInfo(t.Context())
 
-	var statusErr *apdu.StatusError
+	var statusErr *iso7816.APDUError
 	require.ErrorAs(t, err, &statusErr)
-	assert.Equal(t, "read serial number", statusErr.Operation)
-	assert.Equal(t, uint16(0x6a82), statusErr.SW)
+	assert.Equal(t, iso7816.StatusWord(0x6a82), statusErr.StatusWord())
+	assert.Contains(t, err.Error(), "read serial number")
 }
 
 func responseReport(sequence byte, more bool, payload []byte) []byte {

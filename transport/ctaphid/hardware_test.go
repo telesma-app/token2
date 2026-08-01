@@ -19,7 +19,7 @@ func TestHardware(t *testing.T) {
 		require.NoError(t, device.Close())
 	})
 
-	atr, err := device.ATRInfo(t.Context())
+	atr, err := device.ATR(t.Context())
 	require.NoError(t, err)
 	require.NotEmpty(t, atr.Raw)
 	t.Logf("ATR: %x", atr.Raw)
