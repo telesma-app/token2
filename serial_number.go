@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/go-ctap/token2/internal/protocol"
+	"github.com/telesma-app/token2/internal/protocol"
 )
 
 // ErrInvalidSerialResponse reports a malformed serial-number response received

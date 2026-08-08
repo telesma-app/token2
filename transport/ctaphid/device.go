@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/go-ctap/ctap/transport/ctaphid"
-	hidapi "github.com/go-ctap/hid"
-	"github.com/go-ctap/token2"
+	"github.com/telesma-app/ctap/transport/ctaphid"
+	hidapi "github.com/telesma-app/hid"
+	"github.com/telesma-app/token2"
 )
 
 // CommandGetATR is the Token2 vendor command which returns the device ATR.

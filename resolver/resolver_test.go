@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/go-ctap/token2"
-	token2pcsc "github.com/go-ctap/token2/transport/pcsc"
+	"github.com/telesma-app/token2"
+	token2pcsc "github.com/telesma-app/token2/transport/pcsc"
 )
 
 func TestResolveSmartCardUsesExactReader(t *testing.T) {

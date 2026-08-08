@@ -1,7 +1,7 @@
 # go-ctap/token2
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/go-ctap/token2.svg)](https://pkg.go.dev/github.com/go-ctap/token2)
-[![Go](https://github.com/go-ctap/token2/actions/workflows/go.yml/badge.svg)](https://github.com/go-ctap/token2/actions/workflows/go.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/telesma-app/token2.svg)](https://pkg.go.dev/github.com/telesma-app/token2)
+[![Go](https://github.com/telesma-app/token2/actions/workflows/go.yml/badge.svg)](https://github.com/telesma-app/token2/actions/workflows/go.yml)
 
 Pure-Go Token2 device support over PC/SC, USB HID feature reports and CTAPHID.
 
@@ -13,11 +13,11 @@ Pure-Go Token2 device support over PC/SC, USB HID feature reports and CTAPHID.
 - `token2` contains the transport-independent `DeviceInfo`, `ATR` and
   `Configuration` types, response parsers and model identification.
 - `token2/transport/pcsc` opens Token2 devices through
-  [`github.com/go-ctap/pcsc`](https://github.com/go-ctap/pcsc).
+  [`github.com/telesma-app/pcsc`](https://github.com/telesma-app/pcsc).
 - `token2/transport/hid` opens the Token2 HID interface through
-  [`github.com/go-ctap/hid`](https://github.com/go-ctap/hid).
+  [`github.com/telesma-app/hid`](https://github.com/telesma-app/hid).
 - `token2/transport/ctaphid` reads the Token2 ATR through CTAPHID vendor
-  command `0x41`, using [`github.com/go-ctap/ctap`](https://github.com/go-ctap/ctap).
+  command `0x41`, using [`github.com/telesma-app/ctap`](https://github.com/telesma-app/ctap).
 - `token2/resolver` correlates a FIDO attachment with Token2's PC/SC and
   feature-HID interfaces without guessing between multiple devices.
 

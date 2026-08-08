@@ -1,13 +1,13 @@
-module github.com/go-ctap/token2
+module github.com/telesma-app/token2
 
 go 1.26.3
 
 require (
-	github.com/go-ctap/ctap v0.35.0
-	github.com/go-ctap/hid v0.10.1
-	github.com/go-ctap/iso7816 v0.1.0
-	github.com/go-ctap/pcsc v0.6.0
 	github.com/stretchr/testify v1.11.1
+	github.com/telesma-app/ctap v0.44.0
+	github.com/telesma-app/hid v0.12.0
+	github.com/telesma-app/iso7816 v0.2.0
+	github.com/telesma-app/pcsc v0.9.0
 )
 
 require (

@@ -8,9 +8,9 @@ import (
 	"os"
 	"strings"
 
-	githubpcsc "github.com/go-ctap/pcsc"
-	"github.com/go-ctap/token2"
-	token2pcsc "github.com/go-ctap/token2/transport/pcsc"
+	githubpcsc "github.com/telesma-app/pcsc"
+	"github.com/telesma-app/token2"
+	token2pcsc "github.com/telesma-app/token2/transport/pcsc"
 )
 
 func main() {

@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	ghid "github.com/go-ctap/hid"
-	"github.com/go-ctap/pcsc"
-	"github.com/go-ctap/token2"
-	token2hid "github.com/go-ctap/token2/transport/hid"
-	token2pcsc "github.com/go-ctap/token2/transport/pcsc"
+	ghid "github.com/telesma-app/hid"
+	"github.com/telesma-app/pcsc"
+	"github.com/telesma-app/token2"
+	token2hid "github.com/telesma-app/token2/transport/hid"
+	token2pcsc "github.com/telesma-app/token2/transport/pcsc"
 )
 
 const (

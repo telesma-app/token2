@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/go-ctap/iso7816"
-	"github.com/go-ctap/token2/internal/protocol"
+	"github.com/telesma-app/iso7816"
+	"github.com/telesma-app/token2/internal/protocol"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

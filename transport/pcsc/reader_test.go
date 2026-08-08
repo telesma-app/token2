@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/go-ctap/iso7816"
+	"github.com/telesma-app/iso7816"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

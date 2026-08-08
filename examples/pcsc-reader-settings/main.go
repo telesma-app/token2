@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	nativepcsc "github.com/go-ctap/pcsc"
-	token2pcsc "github.com/go-ctap/token2/transport/pcsc"
+	nativepcsc "github.com/telesma-app/pcsc"
+	token2pcsc "github.com/telesma-app/token2/transport/pcsc"
 )
 
 const defaultReaderName = "Token2 Smart Reader"

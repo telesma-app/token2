@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/go-ctap/iso7816"
-	nativepcsc "github.com/go-ctap/pcsc"
-	"github.com/go-ctap/token2"
-	"github.com/go-ctap/token2/internal/protocol"
+	"github.com/telesma-app/iso7816"
+	nativepcsc "github.com/telesma-app/pcsc"
+	"github.com/telesma-app/token2"
+	"github.com/telesma-app/token2/internal/protocol"
 )
 
 const statusInstructionNotSupported iso7816.StatusWord = 0x6d00

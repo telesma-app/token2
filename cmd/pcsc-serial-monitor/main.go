@@ -12,11 +12,11 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/go-ctap/iso7816"
-	nativepcsc "github.com/go-ctap/pcsc"
-	"github.com/go-ctap/token2"
-	"github.com/go-ctap/token2/internal/protocol"
-	token2pcsc "github.com/go-ctap/token2/transport/pcsc"
+	"github.com/telesma-app/iso7816"
+	nativepcsc "github.com/telesma-app/pcsc"
+	"github.com/telesma-app/token2"
+	"github.com/telesma-app/token2/internal/protocol"
+	token2pcsc "github.com/telesma-app/token2/transport/pcsc"
 )
 
 func main() {
@@ -40,7 +40,7 @@ func run(ctx context.Context, args []string, output io.Writer) (err error) {
 		return fmt.Errorf("unexpected arguments: %s", strings.Join(flags.Args(), " "))
 	}
 
-	receiver, err := nativepcsc.Events()
+	receiver, err := nativepcsc.Watch()
 	if err != nil {
 		return fmt.Errorf("listen for PC/SC events: %w", err)
 	}
@@ -59,9 +59,6 @@ func run(ctx context.Context, args []string, output io.Writer) (err error) {
 		case event, ok := <-receiver.Listen():
 			if !ok {
 				return nil
-			}
-			if event.Err != nil {
-				return fmt.Errorf("PC/SC event stream: %w", event.Err)
 			}
 			if !containsFold(event.ReaderInfo.Name, *readerFilter) {
 				continue

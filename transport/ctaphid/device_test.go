@@ -5,8 +5,8 @@ import (
 	"context"
 	"testing"
 
-	lowlevel "github.com/go-ctap/ctap/transport/ctaphid"
-	"github.com/go-ctap/token2"
+	lowlevel "github.com/telesma-app/ctap/transport/ctaphid"
+	"github.com/telesma-app/token2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

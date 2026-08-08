@@ -1,7 +1,7 @@
 // Package protocol defines the Token2 commands shared by transport adapters.
 package protocol
 
-import "github.com/go-ctap/iso7816"
+import "github.com/telesma-app/iso7816"
 
 const (
 	classISO          = 0x00

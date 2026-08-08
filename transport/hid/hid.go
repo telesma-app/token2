@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"sync"
 
-	hidapi "github.com/go-ctap/hid"
-	"github.com/go-ctap/iso7816"
-	"github.com/go-ctap/token2"
-	"github.com/go-ctap/token2/internal/protocol"
+	hidapi "github.com/telesma-app/hid"
+	"github.com/telesma-app/iso7816"
+	"github.com/telesma-app/token2"
+	"github.com/telesma-app/token2/internal/protocol"
 )
 
 const (

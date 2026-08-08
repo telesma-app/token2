@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-ctap/iso7816"
-	"github.com/go-ctap/token2/internal/protocol"
+	"github.com/telesma-app/iso7816"
+	"github.com/telesma-app/token2/internal/protocol"
 )
 
 // ReaderSoundLevel is the sound level configured on a Token2 reader.

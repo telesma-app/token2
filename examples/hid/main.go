@@ -7,9 +7,9 @@ import (
 	"log"
 	"os"
 
-	githubhid "github.com/go-ctap/hid"
-	"github.com/go-ctap/token2"
-	token2hid "github.com/go-ctap/token2/transport/hid"
+	githubhid "github.com/telesma-app/hid"
+	"github.com/telesma-app/token2"
+	token2hid "github.com/telesma-app/token2/transport/hid"
 )
 
 const (

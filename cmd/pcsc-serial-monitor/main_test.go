@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/go-ctap/token2"
+	"github.com/telesma-app/token2"
 )
 
 func TestMonitorResultsPrintsAccumulatedSummary(t *testing.T) {
