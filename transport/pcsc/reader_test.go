@@ -110,11 +110,8 @@ func TestSetReaderSoundLevelRejectsInvalidLevel(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected an error")
 	}
-	{
-		container, element := err.Error(), "sound level 6"
-		if !strings.Contains(container, element) {
-			t.Errorf("value does not contain %#v", element)
-		}
+	if container, element := err.Error(), "sound level 6"; !strings.Contains(container, element) {
+		t.Errorf("value does not contain %#v", element)
 	}
 	if got := card.sent; len(got) != 0 {
 		t.Errorf("got non-empty value %#v", got)
@@ -138,11 +135,8 @@ func TestSetReaderSettingErrors(t *testing.T) {
 			name: "transport",
 			err:  transmitErr,
 			check: func(t *testing.T, err error) {
-				{
-					err, target := err, transmitErr
-					if !errors.Is(err, target) {
-						t.Fatalf("got error %v, want errors.Is(error, %#v)", err, target)
-					}
+				if err, target := err, transmitErr; !errors.Is(err, target) {
+					t.Fatalf("got error %v, want errors.Is(error, %#v)", err, target)
 				}
 			},
 		},
@@ -153,11 +147,8 @@ func TestSetReaderSettingErrors(t *testing.T) {
 				if err == nil {
 					t.Fatalf("expected an error")
 				}
-				{
-					container, element := err.Error(), "invalid response APDU"
-					if !strings.Contains(container, element) {
-						t.Errorf("value does not contain %#v", element)
-					}
+				if container, element := err.Error(), "invalid response APDU"; !strings.Contains(container, element) {
+					t.Errorf("value does not contain %#v", element)
 				}
 			},
 		},
@@ -169,17 +160,11 @@ func TestSetReaderSettingErrors(t *testing.T) {
 				if err := err; !errors.As(err, &statusErr) {
 					t.Fatalf("error %v does not match requested type", err)
 				}
-				{
-					want, got := iso7816.StatusWord(0x6d00), statusErr.StatusWord()
-					if got != want {
-						t.Errorf("got %#v, want %#v", got, want)
-					}
+				if got, want := statusErr.StatusWord(), iso7816.StatusWord(0x6d00); got != want {
+					t.Errorf("got %#v, want %#v", got, want)
 				}
-				{
-					container, element := err.Error(), "set Token2 reader sound level"
-					if !strings.Contains(container, element) {
-						t.Errorf("value does not contain %#v", element)
-					}
+				if container, element := err.Error(), "set Token2 reader sound level"; !strings.Contains(container, element) {
+					t.Errorf("value does not contain %#v", element)
 				}
 			},
 		},

@@ -23,17 +23,11 @@ func TestParseConfiguration(t *testing.T) {
 			t.Errorf("got %#v, want %#v", got, want)
 		}
 	}
-	{
-		want, got := byte(0x2a), config.DeviceConfiguration
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := config.DeviceConfiguration, byte(0x2a); got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
-	{
-		want, got := byte(0x37), config.DeviceExtension
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := config.DeviceExtension, byte(0x37); got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
 }
 
@@ -42,11 +36,8 @@ func TestParseConfigurationLegacy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	{
-		want, got := byte(0x02), config.TransferType
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := config.TransferType, byte(0x02); got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
 }
 

@@ -10,11 +10,8 @@ func TestParseSerialNumber(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	{
-		want, got := "72102935780528", serial
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := serial, "72102935780528"; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
 }
 

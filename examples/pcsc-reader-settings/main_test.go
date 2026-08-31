@@ -58,11 +58,8 @@ func TestChooseReader(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			{
-				want, got := tt.want, chooseReader(readers, tt.filter, tt.fallback)
-				if got != want {
-					t.Errorf("got %#v, want %#v", got, want)
-				}
+			if got, want := chooseReader(readers, tt.filter, tt.fallback), tt.want; got != want {
+				t.Errorf("got %#v, want %#v", got, want)
 			}
 		})
 	}
@@ -99,17 +96,11 @@ func TestParseSoundLevel(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			{
-				want, got := tt.level, level
-				if got != want {
-					t.Errorf("got %#v, want %#v", got, want)
-				}
+			if got, want := level, tt.level; got != want {
+				t.Errorf("got %#v, want %#v", got, want)
 			}
-			{
-				want, got := tt.set, set
-				if got != want {
-					t.Errorf("got %#v, want %#v", got, want)
-				}
+			if got, want := set, tt.set; got != want {
+				t.Errorf("got %#v, want %#v", got, want)
 			}
 		})
 	}
@@ -143,17 +134,11 @@ func TestParseNFC(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			{
-				want, got := tt.enabled, enabled
-				if got != want {
-					t.Errorf("got %#v, want %#v", got, want)
-				}
+			if got, want := enabled, tt.enabled; got != want {
+				t.Errorf("got %#v, want %#v", got, want)
 			}
-			{
-				want, got := tt.set, set
-				if got != want {
-					t.Errorf("got %#v, want %#v", got, want)
-				}
+			if got, want := set, tt.set; got != want {
+				t.Errorf("got %#v, want %#v", got, want)
 			}
 		})
 	}

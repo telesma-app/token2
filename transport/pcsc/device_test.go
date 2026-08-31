@@ -119,38 +119,23 @@ func TestConfiguration(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	{
-		want, got := data, config.Raw
-		if (got == nil) != (want == nil) || !bytes.Equal(got, want) {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := config.Raw, data; (got == nil) != (want == nil) || !bytes.Equal(got, want) {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
-	{
-		want, got := byte(0x02), config.TransferType
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := config.TransferType, byte(0x02); got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
-	{
-		want, got := byte(0x2a), config.DeviceConfiguration
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := config.DeviceConfiguration, byte(0x2a); got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
 	if got := card.steps; len(got) != 0 {
 		t.Errorf("got non-empty value %#v", got)
 	}
-	{
-		want, got := 1, card.begins
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := card.begins, 1; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
-	{
-		want, got := 1, card.ends
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := card.ends, 1; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
 	if got, want := len(card.contexts), 2; got != want {
 		t.Fatalf("got length %d, want %d", got, want)
@@ -179,17 +164,11 @@ func TestConfigurationRejectsFailedSelect(t *testing.T) {
 	if err := err; !errors.As(err, &statusErr) {
 		t.Fatalf("error %v does not match requested type", err)
 	}
-	{
-		err, target := err, ErrOTPApplicationNotAvailable
-		if !errors.Is(err, target) {
-			t.Fatalf("got error %v, want errors.Is(error, %#v)", err, target)
-		}
+	if err, target := err, ErrOTPApplicationNotAvailable; !errors.Is(err, target) {
+		t.Fatalf("got error %v, want errors.Is(error, %#v)", err, target)
 	}
-	{
-		container, element := err.Error(), "select Token2 OTP application"
-		if !strings.Contains(container, element) {
-			t.Errorf("value does not contain %#v", element)
-		}
+	if container, element := err.Error(), "select Token2 OTP application"; !strings.Contains(container, element) {
+		t.Errorf("value does not contain %#v", element)
 	}
 	if got := card.steps; len(got) != 0 {
 		t.Errorf("got non-empty value %#v", got)
@@ -205,17 +184,11 @@ func TestConfigurationRejectsFailedTransaction(t *testing.T) {
 
 	_, err := (&Device{card: card}).Configuration(t.Context())
 
-	{
-		err, target := err, want
-		if !errors.Is(err, target) {
-			t.Fatalf("got error %v, want errors.Is(error, %#v)", err, target)
-		}
+	if err, target := err, want; !errors.Is(err, target) {
+		t.Fatalf("got error %v, want errors.Is(error, %#v)", err, target)
 	}
-	{
-		want, got := 1, card.begins
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := card.begins, 1; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
 	if got := card.ends; !(got == 0) {
 		t.Errorf("got %#v, want zero value", got)
@@ -237,23 +210,14 @@ func TestConfigurationPropagatesEndTransactionFailure(t *testing.T) {
 
 	_, err := (&Device{card: card}).Configuration(t.Context())
 
-	{
-		err, target := err, want
-		if !errors.Is(err, target) {
-			t.Fatalf("got error %v, want errors.Is(error, %#v)", err, target)
-		}
+	if err, target := err, want; !errors.Is(err, target) {
+		t.Fatalf("got error %v, want errors.Is(error, %#v)", err, target)
 	}
-	{
-		want, got := 1, card.begins
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := card.begins, 1; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
-	{
-		want, got := 1, card.ends
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := card.ends, 1; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
 }
 
@@ -324,11 +288,8 @@ func TestStatusErrors(t *testing.T) {
 			if err := err; !errors.As(err, &statusErr) {
 				t.Fatalf("error %v does not match requested type", err)
 			}
-			{
-				container, element := err.Error(), tt.operation
-				if !strings.Contains(container, element) {
-					t.Errorf("value does not contain %#v", element)
-				}
+			if container, element := err.Error(), tt.operation; !strings.Contains(container, element) {
+				t.Errorf("value does not contain %#v", element)
 			}
 			if got := card.steps; len(got) != 0 {
 				t.Errorf("got non-empty value %#v", got)
@@ -350,32 +311,20 @@ func TestDeviceInfoSequence(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	{
-		want, got := "72102935780528", info.SerialNumber
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := info.SerialNumber, "72102935780528"; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
-	{
-		want, got := "Mini USB-C PIN+", info.FormFactor
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := info.FormFactor, "Mini USB-C PIN+"; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
 	if got := card.steps; len(got) != 0 {
 		t.Errorf("got non-empty value %#v", got)
 	}
-	{
-		want, got := 1, card.begins
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := card.begins, 1; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
-	{
-		want, got := 1, card.ends
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := card.ends, 1; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
 }
 
@@ -396,32 +345,20 @@ func TestDeviceInfoSequenceFallsBackToLegacyPrelude(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	{
-		want, got := "76105044935356", info.SerialNumber
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := info.SerialNumber, "76105044935356"; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
-	{
-		want, got := "USB-A PIN+ NFC", info.FormFactor
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := info.FormFactor, "USB-A PIN+ NFC"; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
 	if got := card.steps; len(got) != 0 {
 		t.Errorf("got non-empty value %#v", got)
 	}
-	{
-		want, got := 1, card.begins
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := card.begins, 1; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
-	{
-		want, got := 1, card.ends
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := card.ends, 1; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
 }
 
@@ -442,32 +379,20 @@ func TestDeviceInfoSequenceFallsBackToFIDO(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	{
-		want, got := "76105044935356", info.SerialNumber
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := info.SerialNumber, "76105044935356"; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
-	{
-		want, got := "USB-A PIN+ NFC", info.FormFactor
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := info.FormFactor, "USB-A PIN+ NFC"; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
 	if got := card.steps; len(got) != 0 {
 		t.Errorf("got non-empty value %#v", got)
 	}
-	{
-		want, got := 1, card.begins
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := card.begins, 1; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
-	{
-		want, got := 1, card.ends
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := card.ends, 1; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
 }
 
@@ -485,17 +410,11 @@ func TestATR(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	{
-		want, got := uint16(0x0016), info.ProductID
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := info.ProductID, uint16(0x0016); got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
-	{
-		want, got := "35780528", info.SerialSuffix
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := info.SerialSuffix, "35780528"; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
 }
 
@@ -506,11 +425,8 @@ func TestDeviceClose(t *testing.T) {
 
 	err := device.Close()
 
-	{
-		err, target := err, closeErr
-		if !errors.Is(err, target) {
-			t.Errorf("got error %v, want errors.Is(error, %#v)", err, target)
-		}
+	if err, target := err, closeErr; !errors.Is(err, target) {
+		t.Errorf("got error %v, want errors.Is(error, %#v)", err, target)
 	}
 	if got := card.closed; !got {
 		t.Errorf("got false, want true")

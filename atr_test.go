@@ -20,17 +20,11 @@ func TestParseATR(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		{
-			want, got := tc.pid, info.ProductID
-			if got != want {
-				t.Errorf("got %#v, want %#v", got, want)
-			}
+		if got, want := info.ProductID, tc.pid; got != want {
+			t.Errorf("got %#v, want %#v", got, want)
 		}
-		{
-			want, got := tc.suffix, info.SerialSuffix
-			if got != want {
-				t.Errorf("got %#v, want %#v", got, want)
-			}
+		if got, want := info.SerialSuffix, tc.suffix; got != want {
+			t.Errorf("got %#v, want %#v", got, want)
 		}
 	}
 }
@@ -61,10 +55,7 @@ func TestParseATRRejectsGenericPIVATR(t *testing.T) {
 
 	_, err := ParseATR(atr)
 
-	{
-		err, target := err, ErrInvalidATR
-		if !errors.Is(err, target) {
-			t.Errorf("got error %v, want errors.Is(error, %#v)", err, target)
-		}
+	if err, target := err, ErrInvalidATR; !errors.Is(err, target) {
+		t.Errorf("got error %v, want errors.Is(error, %#v)", err, target)
 	}
 }

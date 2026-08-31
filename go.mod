@@ -3,7 +3,7 @@ module github.com/telesma-app/token2
 go 1.27.0
 
 require (
-	github.com/telesma-app/ctap v0.49.2
+	github.com/telesma-app/ctap v0.49.3
 	github.com/telesma-app/hid v0.12.1
 	github.com/telesma-app/iso7816 v0.2.0
 	github.com/telesma-app/pcsc v0.9.0

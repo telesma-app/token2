@@ -11,29 +11,17 @@ func TestIdentify(t *testing.T) {
 		t.Fatalf("got false, want true")
 	}
 
-	{
-		want, got := "72103654095303", info.SerialNumber
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := info.SerialNumber, "72103654095303"; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
-	{
-		want, got := "R3.2", info.Release
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := info.Release, "R3.2"; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
-	{
-		want, got := "Bio3 Dual A+C PIN+", info.FormFactor
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := info.FormFactor, "Bio3 Dual A+C PIN+"; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
-	{
-		want, got := "Token2", info.Branding
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := info.Branding, "Token2"; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
 }
 
@@ -118,17 +106,11 @@ func TestIdentifyCustomCard(t *testing.T) {
 		t.Fatalf("got false, want true")
 	}
 
-	{
-		want, got := "R3.1", info.Release
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := info.Release, "R3.1"; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
-	{
-		want, got := "Custom system access card", info.FormFactor
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := info.FormFactor, "Custom system access card"; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
 }
 
@@ -147,11 +129,8 @@ func TestIdentifyRejectsInvalidSerialNumber(t *testing.T) {
 			if got := ok; got {
 				t.Errorf("got true, want false")
 			}
-			{
-				want, got := serialNumber, info.SerialNumber
-				if got != want {
-					t.Errorf("got %#v, want %#v", got, want)
-				}
+			if got, want := info.SerialNumber, serialNumber; got != want {
+				t.Errorf("got %#v, want %#v", got, want)
 			}
 			if got := info.Release; len(got) != 0 {
 				t.Errorf("got non-empty value %#v", got)
@@ -208,11 +187,8 @@ func TestDeviceInfoModelName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			{
-				want, got := tt.want, tt.info.ModelName(tt.fallback)
-				if got != want {
-					t.Errorf("got %#v, want %#v", got, want)
-				}
+			if got, want := tt.info.ModelName(tt.fallback), tt.want; got != want {
+				t.Errorf("got %#v, want %#v", got, want)
 			}
 		})
 	}

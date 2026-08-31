@@ -53,40 +53,25 @@ func TestATR(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	{
-		want, got := uint16(0x0016), info.ProductID
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := info.ProductID, uint16(0x0016); got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
-	{
-		want, got := "35780528", info.SerialSuffix
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := info.SerialSuffix, "35780528"; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
-	{
-		want, got := atr, info.Raw
-		if (got == nil) != (want == nil) || !bytes.Equal(got, want) {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := info.Raw, atr; (got == nil) != (want == nil) || !bytes.Equal(got, want) {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
 
 	written := device.writes.Bytes()
 	if got, want := len(written), reportSize; got != want {
 		t.Fatalf("got length %d, want %d", got, want)
 	}
-	{
-		want, got := byte(CommandGetATR)|initPacketBit, written[5]
-		if got != want {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := written[5], byte(CommandGetATR)|initPacketBit; got != want {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
-	{
-		want, got := cid[:], written[1:5]
-		if (got == nil) != (want == nil) || !bytes.Equal(got, want) {
-			t.Errorf("got %#v, want %#v", got, want)
-		}
+	if got, want := written[1:5], cid[:]; (got == nil) != (want == nil) || !bytes.Equal(got, want) {
+		t.Errorf("got %#v, want %#v", got, want)
 	}
 	if got, want := len(device.writeContexts), 1; got != want {
 		t.Fatalf("got length %d, want %d", got, want)
@@ -108,11 +93,8 @@ func TestATRRejectsMalformedResponse(t *testing.T) {
 
 	_, err := transport.ATR(t.Context())
 
-	{
-		err, target := err, token2.ErrInvalidATR
-		if !errors.Is(err, target) {
-			t.Errorf("got error %v, want errors.Is(error, %#v)", err, target)
-		}
+	if err, target := err, token2.ErrInvalidATR; !errors.Is(err, target) {
+		t.Errorf("got error %v, want errors.Is(error, %#v)", err, target)
 	}
 }
 
