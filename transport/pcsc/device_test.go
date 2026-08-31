@@ -5,12 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/telesma-app/iso7816"
 	nativepcsc "github.com/telesma-app/pcsc"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -116,17 +115,55 @@ func TestConfiguration(t *testing.T) {
 	device := &Device{card: card}
 
 	config, err := device.Configuration(ctx)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	assert.Equal(t, data, config.Raw)
-	assert.Equal(t, byte(0x02), config.TransferType)
-	assert.Equal(t, byte(0x2a), config.DeviceConfiguration)
-	assert.Empty(t, card.steps)
-	assert.Equal(t, 1, card.begins)
-	assert.Equal(t, 1, card.ends)
-	require.Len(t, card.contexts, 2)
+	{
+		want, got := data, config.Raw
+		if (got == nil) != (want == nil) || !bytes.Equal(got, want) {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := byte(0x02), config.TransferType
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := byte(0x2a), config.DeviceConfiguration
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	if got := card.steps; len(got) != 0 {
+		t.Errorf("got non-empty value %#v", got)
+	}
+	{
+		want, got := 1, card.begins
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := 1, card.ends
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	if got, want := len(card.contexts), 2; got != want {
+		t.Fatalf("got length %d, want %d", got, want)
+	}
 	for _, got := range card.contexts {
-		assert.Equal(t, "config", got.Value(contextKey{}))
+		{
+			want, got := "config", got.Value(contextKey{})
+			gotValue, ok := got.(string)
+
+			if !ok || gotValue != want {
+				t.Errorf("got %#v, want %#v", got, want)
+			}
+		}
 	}
 }
 
@@ -139,11 +176,27 @@ func TestConfigurationRejectsFailedSelect(t *testing.T) {
 	_, err := device.Configuration(t.Context())
 
 	var statusErr *iso7816.APDUError
-	require.ErrorAs(t, err, &statusErr)
-	require.ErrorIs(t, err, ErrOTPApplicationNotAvailable)
-	assert.Contains(t, err.Error(), "select Token2 OTP application")
-	assert.Empty(t, card.steps)
-	assert.Len(t, card.sent, 1)
+	if err := err; !errors.As(err, &statusErr) {
+		t.Fatalf("error %v does not match requested type", err)
+	}
+	{
+		err, target := err, ErrOTPApplicationNotAvailable
+		if !errors.Is(err, target) {
+			t.Fatalf("got error %v, want errors.Is(error, %#v)", err, target)
+		}
+	}
+	{
+		container, element := err.Error(), "select Token2 OTP application"
+		if !strings.Contains(container, element) {
+			t.Errorf("value does not contain %#v", element)
+		}
+	}
+	if got := card.steps; len(got) != 0 {
+		t.Errorf("got non-empty value %#v", got)
+	}
+	if got, want := len(card.sent), 1; got != want {
+		t.Errorf("got length %d, want %d", got, want)
+	}
 }
 
 func TestConfigurationRejectsFailedTransaction(t *testing.T) {
@@ -152,10 +205,24 @@ func TestConfigurationRejectsFailedTransaction(t *testing.T) {
 
 	_, err := (&Device{card: card}).Configuration(t.Context())
 
-	require.ErrorIs(t, err, want)
-	assert.Equal(t, 1, card.begins)
-	assert.Zero(t, card.ends)
-	assert.Empty(t, card.sent)
+	{
+		err, target := err, want
+		if !errors.Is(err, target) {
+			t.Fatalf("got error %v, want errors.Is(error, %#v)", err, target)
+		}
+	}
+	{
+		want, got := 1, card.begins
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	if got := card.ends; !(got == 0) {
+		t.Errorf("got %#v, want zero value", got)
+	}
+	if got := card.sent; len(got) != 0 {
+		t.Errorf("got non-empty value %#v", got)
+	}
 }
 
 func TestConfigurationPropagatesEndTransactionFailure(t *testing.T) {
@@ -170,9 +237,24 @@ func TestConfigurationPropagatesEndTransactionFailure(t *testing.T) {
 
 	_, err := (&Device{card: card}).Configuration(t.Context())
 
-	require.ErrorIs(t, err, want)
-	assert.Equal(t, 1, card.begins)
-	assert.Equal(t, 1, card.ends)
+	{
+		err, target := err, want
+		if !errors.Is(err, target) {
+			t.Fatalf("got error %v, want errors.Is(error, %#v)", err, target)
+		}
+	}
+	{
+		want, got := 1, card.begins
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := 1, card.ends
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
 }
 
 func TestStatusErrors(t *testing.T) {
@@ -239,9 +321,18 @@ func TestStatusErrors(t *testing.T) {
 			err := tt.call(&Device{card: card})
 
 			var statusErr *iso7816.APDUError
-			require.ErrorAs(t, err, &statusErr)
-			assert.Contains(t, err.Error(), tt.operation)
-			assert.Empty(t, card.steps)
+			if err := err; !errors.As(err, &statusErr) {
+				t.Fatalf("error %v does not match requested type", err)
+			}
+			{
+				container, element := err.Error(), tt.operation
+				if !strings.Contains(container, element) {
+					t.Errorf("value does not contain %#v", element)
+				}
+			}
+			if got := card.steps; len(got) != 0 {
+				t.Errorf("got non-empty value %#v", got)
+			}
 		})
 	}
 }
@@ -255,13 +346,37 @@ func TestDeviceInfoSequence(t *testing.T) {
 	device := &Device{card: card}
 
 	info, err := device.DeviceInfo(t.Context())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	assert.Equal(t, "72102935780528", info.SerialNumber)
-	assert.Equal(t, "Mini USB-C PIN+", info.FormFactor)
-	assert.Empty(t, card.steps)
-	assert.Equal(t, 1, card.begins)
-	assert.Equal(t, 1, card.ends)
+	{
+		want, got := "72102935780528", info.SerialNumber
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := "Mini USB-C PIN+", info.FormFactor
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	if got := card.steps; len(got) != 0 {
+		t.Errorf("got non-empty value %#v", got)
+	}
+	{
+		want, got := 1, card.begins
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := 1, card.ends
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
 }
 
 func TestDeviceInfoSequenceFallsBackToLegacyPrelude(t *testing.T) {
@@ -277,13 +392,37 @@ func TestDeviceInfoSequenceFallsBackToLegacyPrelude(t *testing.T) {
 	device := &Device{card: card}
 
 	info, err := device.DeviceInfo(t.Context())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	assert.Equal(t, "76105044935356", info.SerialNumber)
-	assert.Equal(t, "USB-A PIN+ NFC", info.FormFactor)
-	assert.Empty(t, card.steps)
-	assert.Equal(t, 1, card.begins)
-	assert.Equal(t, 1, card.ends)
+	{
+		want, got := "76105044935356", info.SerialNumber
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := "USB-A PIN+ NFC", info.FormFactor
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	if got := card.steps; len(got) != 0 {
+		t.Errorf("got non-empty value %#v", got)
+	}
+	{
+		want, got := 1, card.begins
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := 1, card.ends
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
 }
 
 func TestDeviceInfoSequenceFallsBackToFIDO(t *testing.T) {
@@ -299,13 +438,37 @@ func TestDeviceInfoSequenceFallsBackToFIDO(t *testing.T) {
 	device := &Device{card: card}
 
 	info, err := device.DeviceInfo(t.Context())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	assert.Equal(t, "76105044935356", info.SerialNumber)
-	assert.Equal(t, "USB-A PIN+ NFC", info.FormFactor)
-	assert.Empty(t, card.steps)
-	assert.Equal(t, 1, card.begins)
-	assert.Equal(t, 1, card.ends)
+	{
+		want, got := "76105044935356", info.SerialNumber
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := "USB-A PIN+ NFC", info.FormFactor
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	if got := card.steps; len(got) != 0 {
+		t.Errorf("got non-empty value %#v", got)
+	}
+	{
+		want, got := 1, card.begins
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := 1, card.ends
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
 }
 
 func TestATR(t *testing.T) {
@@ -318,10 +481,22 @@ func TestATR(t *testing.T) {
 	device := &Device{card: card}
 
 	info, err := device.ATR(t.Context())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	assert.Equal(t, uint16(0x0016), info.ProductID)
-	assert.Equal(t, "35780528", info.SerialSuffix)
+	{
+		want, got := uint16(0x0016), info.ProductID
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := "35780528", info.SerialSuffix
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
 }
 
 func TestDeviceClose(t *testing.T) {
@@ -331,6 +506,13 @@ func TestDeviceClose(t *testing.T) {
 
 	err := device.Close()
 
-	assert.ErrorIs(t, err, closeErr)
-	assert.True(t, card.closed)
+	{
+		err, target := err, closeErr
+		if !errors.Is(err, target) {
+			t.Errorf("got error %v, want errors.Is(error, %#v)", err, target)
+		}
+	}
+	if got := card.closed; !got {
+		t.Errorf("got false, want true")
+	}
 }

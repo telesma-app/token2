@@ -3,8 +3,6 @@ package hid
 import (
 	"os"
 	"testing"
-
-	"github.com/stretchr/testify/require"
 )
 
 func TestHardware(t *testing.T) {
@@ -14,13 +12,23 @@ func TestHardware(t *testing.T) {
 	}
 
 	device, err := Open(path)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	t.Cleanup(func() {
-		require.NoError(t, device.Close())
+		if err := device.Close(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 	})
 
 	info, err := device.DeviceInfo(t.Context())
-	require.NoError(t, err)
-	require.NotEmpty(t, info.SerialNumber)
-	require.NotEmpty(t, info.ModelName(""))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := info.SerialNumber; len(got) == 0 {
+		t.Fatalf("got empty value %#v, want non-empty", got)
+	}
+	if got := info.ModelName(""); len(got) == 0 {
+		t.Fatalf("got empty value %#v, want non-empty", got)
+	}
 }

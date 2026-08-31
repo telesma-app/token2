@@ -3,9 +3,6 @@ package token2
 import (
 	"errors"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestParseATR(t *testing.T) {
@@ -19,10 +16,22 @@ func TestParseATR(t *testing.T) {
 	}
 	for _, tc := range tests {
 		info, err := ParseATR(tc.atr)
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 
-		assert.Equal(t, tc.pid, info.ProductID)
-		assert.Equal(t, tc.suffix, info.SerialSuffix)
+		{
+			want, got := tc.pid, info.ProductID
+			if got != want {
+				t.Errorf("got %#v, want %#v", got, want)
+			}
+		}
+		{
+			want, got := tc.suffix, info.SerialSuffix
+			if got != want {
+				t.Errorf("got %#v, want %#v", got, want)
+			}
+		}
 	}
 }
 
@@ -35,8 +44,12 @@ func TestParseATRRejectsMalformedData(t *testing.T) {
 
 	for _, atr := range tests {
 		_, err := ParseATR(atr)
-		require.Error(t, err)
-		assert.True(t, errors.Is(err, ErrInvalidATR))
+		if err == nil {
+			t.Fatalf("expected an error")
+		}
+		if got := errors.Is(err, ErrInvalidATR); !got {
+			t.Errorf("got false, want true")
+		}
 	}
 }
 
@@ -48,5 +61,10 @@ func TestParseATRRejectsGenericPIVATR(t *testing.T) {
 
 	_, err := ParseATR(atr)
 
-	assert.ErrorIs(t, err, ErrInvalidATR)
+	{
+		err, target := err, ErrInvalidATR
+		if !errors.Is(err, target) {
+			t.Errorf("got error %v, want errors.Is(error, %#v)", err, target)
+		}
+	}
 }

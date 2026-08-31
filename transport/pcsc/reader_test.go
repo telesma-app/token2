@@ -3,11 +3,10 @@ package pcsc
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/telesma-app/iso7816"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestSetReaderSoundLevel(t *testing.T) {
@@ -38,12 +37,29 @@ func TestSetReaderSoundLevel(t *testing.T) {
 
 			err := (&Device{card: card}).SetReaderSoundLevel(ctx, tt.level)
 
-			require.NoError(t, err)
-			assert.Empty(t, card.steps)
-			assert.Zero(t, card.begins)
-			assert.Zero(t, card.ends)
-			require.Len(t, card.contexts, 1)
-			assert.Equal(t, "sound", card.contexts[0].Value(contextKey{}))
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got := card.steps; len(got) != 0 {
+				t.Errorf("got non-empty value %#v", got)
+			}
+			if got := card.begins; !(got == 0) {
+				t.Errorf("got %#v, want zero value", got)
+			}
+			if got := card.ends; !(got == 0) {
+				t.Errorf("got %#v, want zero value", got)
+			}
+			if got, want := len(card.contexts), 1; got != want {
+				t.Fatalf("got length %d, want %d", got, want)
+			}
+			{
+				want, got := "sound", card.contexts[0].Value(contextKey{})
+				gotValue, ok := got.(string)
+
+				if !ok || gotValue != want {
+					t.Errorf("got %#v, want %#v", got, want)
+				}
+			}
 		})
 	}
 }
@@ -70,10 +86,18 @@ func TestSetReaderNFC(t *testing.T) {
 
 			err := (&Device{card: card}).SetReaderNFC(t.Context(), tt.enabled)
 
-			require.NoError(t, err)
-			assert.Empty(t, card.steps)
-			assert.Zero(t, card.begins)
-			assert.Zero(t, card.ends)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got := card.steps; len(got) != 0 {
+				t.Errorf("got non-empty value %#v", got)
+			}
+			if got := card.begins; !(got == 0) {
+				t.Errorf("got %#v, want zero value", got)
+			}
+			if got := card.ends; !(got == 0) {
+				t.Errorf("got %#v, want zero value", got)
+			}
 		})
 	}
 }
@@ -83,9 +107,18 @@ func TestSetReaderSoundLevelRejectsInvalidLevel(t *testing.T) {
 
 	err := (&Device{card: card}).SetReaderSoundLevel(t.Context(), ReaderSoundLevel5+1)
 
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "sound level 6")
-	assert.Empty(t, card.sent)
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
+	{
+		container, element := err.Error(), "sound level 6"
+		if !strings.Contains(container, element) {
+			t.Errorf("value does not contain %#v", element)
+		}
+	}
+	if got := card.sent; len(got) != 0 {
+		t.Errorf("got non-empty value %#v", got)
+	}
 }
 
 func TestSetReaderSettingErrors(t *testing.T) {
@@ -105,15 +138,27 @@ func TestSetReaderSettingErrors(t *testing.T) {
 			name: "transport",
 			err:  transmitErr,
 			check: func(t *testing.T, err error) {
-				require.ErrorIs(t, err, transmitErr)
+				{
+					err, target := err, transmitErr
+					if !errors.Is(err, target) {
+						t.Fatalf("got error %v, want errors.Is(error, %#v)", err, target)
+					}
+				}
 			},
 		},
 		{
 			name:     "malformed response",
 			response: []byte{0x90},
 			check: func(t *testing.T, err error) {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), "invalid response APDU")
+				if err == nil {
+					t.Fatalf("expected an error")
+				}
+				{
+					container, element := err.Error(), "invalid response APDU"
+					if !strings.Contains(container, element) {
+						t.Errorf("value does not contain %#v", element)
+					}
+				}
 			},
 		},
 		{
@@ -121,9 +166,21 @@ func TestSetReaderSettingErrors(t *testing.T) {
 			response: statusResponse(0x6d00),
 			check: func(t *testing.T, err error) {
 				var statusErr *iso7816.APDUError
-				require.ErrorAs(t, err, &statusErr)
-				assert.Equal(t, iso7816.StatusWord(0x6d00), statusErr.StatusWord())
-				assert.Contains(t, err.Error(), "set Token2 reader sound level")
+				if err := err; !errors.As(err, &statusErr) {
+					t.Fatalf("error %v does not match requested type", err)
+				}
+				{
+					want, got := iso7816.StatusWord(0x6d00), statusErr.StatusWord()
+					if got != want {
+						t.Errorf("got %#v, want %#v", got, want)
+					}
+				}
+				{
+					container, element := err.Error(), "set Token2 reader sound level"
+					if !strings.Contains(container, element) {
+						t.Errorf("value does not contain %#v", element)
+					}
+				}
 			},
 		},
 	}
@@ -137,7 +194,9 @@ func TestSetReaderSettingErrors(t *testing.T) {
 			err := (&Device{card: card}).SetReaderSoundLevel(t.Context(), ReaderSoundOff)
 
 			tt.check(t, err)
-			assert.Empty(t, card.steps)
+			if got := card.steps; len(got) != 0 {
+				t.Errorf("got non-empty value %#v", got)
+			}
 		})
 	}
 }

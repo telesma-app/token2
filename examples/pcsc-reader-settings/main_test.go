@@ -6,14 +6,17 @@ import (
 
 	nativepcsc "github.com/telesma-app/pcsc"
 	token2pcsc "github.com/telesma-app/token2/transport/pcsc"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestRunRequiresExplicitSetting(t *testing.T) {
 	err := run(t.Context(), nil, io.Discard)
 
-	require.EqualError(t, err, "at least one of -sound or -nfc is required")
+	{
+		err, want := err, "at least one of -sound or -nfc is required"
+		if err == nil || err.Error() != want {
+			t.Fatalf("got error %v, want %q", err, want)
+		}
+	}
 }
 
 func TestChooseReader(t *testing.T) {
@@ -55,7 +58,12 @@ func TestChooseReader(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, chooseReader(readers, tt.filter, tt.fallback))
+			{
+				want, got := tt.want, chooseReader(readers, tt.filter, tt.fallback)
+				if got != want {
+					t.Errorf("got %#v, want %#v", got, want)
+				}
+			}
 		})
 	}
 }
@@ -82,13 +90,27 @@ func TestParseSoundLevel(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			level, set, err := parseSoundLevel(tt.value)
 			if tt.wantErr {
-				require.Error(t, err)
+				if err == nil {
+					t.Fatalf("expected an error")
+				}
 				return
 			}
 
-			require.NoError(t, err)
-			assert.Equal(t, tt.level, level)
-			assert.Equal(t, tt.set, set)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			{
+				want, got := tt.level, level
+				if got != want {
+					t.Errorf("got %#v, want %#v", got, want)
+				}
+			}
+			{
+				want, got := tt.set, set
+				if got != want {
+					t.Errorf("got %#v, want %#v", got, want)
+				}
+			}
 		})
 	}
 }
@@ -112,13 +134,27 @@ func TestParseNFC(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			enabled, set, err := parseNFC(tt.value)
 			if tt.wantErr {
-				require.Error(t, err)
+				if err == nil {
+					t.Fatalf("expected an error")
+				}
 				return
 			}
 
-			require.NoError(t, err)
-			assert.Equal(t, tt.enabled, enabled)
-			assert.Equal(t, tt.set, set)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			{
+				want, got := tt.enabled, enabled
+				if got != want {
+					t.Errorf("got %#v, want %#v", got, want)
+				}
+			}
+			{
+				want, got := tt.set, set
+				if got != want {
+					t.Errorf("got %#v, want %#v", got, want)
+				}
+			}
 		})
 	}
 }

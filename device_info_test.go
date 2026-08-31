@@ -3,19 +3,38 @@ package token2
 import (
 	"encoding/json"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestIdentify(t *testing.T) {
 	info, ok := Identify("72103654095303")
-	require.True(t, ok)
+	if got := ok; !got {
+		t.Fatalf("got false, want true")
+	}
 
-	assert.Equal(t, "72103654095303", info.SerialNumber)
-	assert.Equal(t, "R3.2", info.Release)
-	assert.Equal(t, "Bio3 Dual A+C PIN+", info.FormFactor)
-	assert.Equal(t, "Token2", info.Branding)
+	{
+		want, got := "72103654095303", info.SerialNumber
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := "R3.2", info.Release
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := "Bio3 Dual A+C PIN+", info.FormFactor
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := "Token2", info.Branding
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
 }
 
 func TestDeviceInfoJSON(t *testing.T) {
@@ -48,45 +67,69 @@ func TestDeviceInfoJSON(t *testing.T) {
 	}
 
 	encoded, err := json.Marshal(info)
-	require.NoError(t, err)
-	assert.JSONEq(t, `{
-		"serialNumber":"72103654095303",
-		"release":"R3.2",
-		"formFactor":"Bio3 Dual A+C PIN+",
-		"branding":"Token2",
-		"productId":4660,
-		"appearance":[134,1,16,0],
-		"fidoVersion":{"major":2,"minor":1,"patch":2},
-		"interfaceStateKnown":true,
-		"fidoEnabled":true,
-		"hotpKeystrokeEnabled":false,
-		"ccidEnabled":true,
-		"capabilitiesKnown":true,
-		"fidoPINSet":true,
-		"fidoPINLocked":false,
-		"supportsHOTP":true,
-		"supportsTOTP":true,
-		"supportsNFC":true,
-		"supportsCCID":true,
-		"supportsFIDO21":true,
-		"hasFingerprintSensor":true,
-		"supportsFingerprintRegistration":false,
-		"supportsMandatoryFingerprint":true,
-		"otpRequiresFingerprint":false,
-		"supportsButtonHOTP":true,
-		"buttonHOTPConfigured":true,
-		"buttonHOTPSendsEnter":false,
-		"buttonHOTPRequiresLongPress":true,
-		"buttonHOTPUsesNumericKeypad":true
-	}`, string(encoded))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	{
+		var want, got any
+		if err := json.Unmarshal([]byte(`{
+			"serialNumber":"72103654095303",
+			"release":"R3.2",
+			"formFactor":"Bio3 Dual A+C PIN+",
+			"branding":"Token2",
+			"productId":4660,
+			"appearance":[134,1,16,0],
+			"fidoVersion":{"major":2,"minor":1,"patch":2},
+			"interfaceStateKnown":true,
+			"fidoEnabled":true,
+			"hotpKeystrokeEnabled":false,
+			"ccidEnabled":true,
+			"capabilitiesKnown":true,
+			"fidoPINSet":true,
+			"fidoPINLocked":false,
+			"supportsHOTP":true,
+			"supportsTOTP":true,
+			"supportsNFC":true,
+			"supportsCCID":true,
+			"supportsFIDO21":true,
+			"hasFingerprintSensor":true,
+			"supportsFingerprintRegistration":false,
+			"supportsMandatoryFingerprint":true,
+			"otpRequiresFingerprint":false,
+			"supportsButtonHOTP":true,
+			"buttonHOTPConfigured":true,
+			"buttonHOTPSendsEnter":false,
+			"buttonHOTPRequiresLongPress":true,
+			"buttonHOTPUsesNumericKeypad":true
+		}`), &want); err != nil {
+			t.Fatalf("decode expected JSON: %v", err)
+		}
+		if err := json.Unmarshal([]byte(string(encoded)), &got); err != nil {
+			t.Errorf("decode actual JSON: %v", err)
+		} else if !jsonValuesEqual(t, got, want) {
+			t.Errorf("got JSON %#v, want %#v", got, want)
+		}
+	}
 }
 
 func TestIdentifyCustomCard(t *testing.T) {
 	info, ok := Identify("70000042")
-	require.True(t, ok)
+	if got := ok; !got {
+		t.Fatalf("got false, want true")
+	}
 
-	assert.Equal(t, "R3.1", info.Release)
-	assert.Equal(t, "Custom system access card", info.FormFactor)
+	{
+		want, got := "R3.1", info.Release
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := "Custom system access card", info.FormFactor
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
 }
 
 func TestIdentifyRejectsInvalidSerialNumber(t *testing.T) {
@@ -101,11 +144,24 @@ func TestIdentifyRejectsInvalidSerialNumber(t *testing.T) {
 		t.Run(serialNumber, func(t *testing.T) {
 			info, ok := Identify(serialNumber)
 
-			assert.False(t, ok)
-			assert.Equal(t, serialNumber, info.SerialNumber)
-			assert.Empty(t, info.Release)
-			assert.Empty(t, info.FormFactor)
-			assert.Empty(t, info.Branding)
+			if got := ok; got {
+				t.Errorf("got true, want false")
+			}
+			{
+				want, got := serialNumber, info.SerialNumber
+				if got != want {
+					t.Errorf("got %#v, want %#v", got, want)
+				}
+			}
+			if got := info.Release; len(got) != 0 {
+				t.Errorf("got non-empty value %#v", got)
+			}
+			if got := info.FormFactor; len(got) != 0 {
+				t.Errorf("got non-empty value %#v", got)
+			}
+			if got := info.Branding; len(got) != 0 {
+				t.Errorf("got non-empty value %#v", got)
+			}
 		})
 	}
 }
@@ -152,7 +208,12 @@ func TestDeviceInfoModelName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, tt.info.ModelName(tt.fallback))
+			{
+				want, got := tt.want, tt.info.ModelName(tt.fallback)
+				if got != want {
+					t.Errorf("got %#v, want %#v", got, want)
+				}
+			}
 		})
 	}
 }

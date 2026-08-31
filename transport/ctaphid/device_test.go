@@ -3,12 +3,11 @@ package ctaphid
 import (
 	"bytes"
 	"context"
+	"errors"
 	"testing"
 
 	lowlevel "github.com/telesma-app/ctap/transport/ctaphid"
 	"github.com/telesma-app/token2"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -51,17 +50,55 @@ func TestATR(t *testing.T) {
 	transport := &Device{transport: lowlevel.NewTransport(device, cid)}
 
 	info, err := transport.ATR(atrCtx)
-	require.NoError(t, err)
-	assert.Equal(t, uint16(0x0016), info.ProductID)
-	assert.Equal(t, "35780528", info.SerialSuffix)
-	assert.Equal(t, atr, info.Raw)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	{
+		want, got := uint16(0x0016), info.ProductID
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := "35780528", info.SerialSuffix
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := atr, info.Raw
+		if (got == nil) != (want == nil) || !bytes.Equal(got, want) {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
 
 	written := device.writes.Bytes()
-	require.Len(t, written, reportSize)
-	assert.Equal(t, byte(CommandGetATR)|initPacketBit, written[5])
-	assert.Equal(t, cid[:], written[1:5])
-	require.Len(t, device.writeContexts, 1)
-	assert.Equal(t, "atr", device.writeContexts[0].Value(contextKey{}))
+	if got, want := len(written), reportSize; got != want {
+		t.Fatalf("got length %d, want %d", got, want)
+	}
+	{
+		want, got := byte(CommandGetATR)|initPacketBit, written[5]
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := cid[:], written[1:5]
+		if (got == nil) != (want == nil) || !bytes.Equal(got, want) {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	if got, want := len(device.writeContexts), 1; got != want {
+		t.Fatalf("got length %d, want %d", got, want)
+	}
+	{
+		want, got := "atr", device.writeContexts[0].Value(contextKey{})
+		gotValue, ok := got.(string)
+
+		if !ok || gotValue != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
 }
 
 func TestATRRejectsMalformedResponse(t *testing.T) {
@@ -71,15 +108,24 @@ func TestATRRejectsMalformedResponse(t *testing.T) {
 
 	_, err := transport.ATR(t.Context())
 
-	assert.ErrorIs(t, err, token2.ErrInvalidATR)
+	{
+		err, target := err, token2.ErrInvalidATR
+		if !errors.Is(err, target) {
+			t.Errorf("got error %v, want errors.Is(error, %#v)", err, target)
+		}
+	}
 }
 
 func TestClose(t *testing.T) {
 	device := newScriptedDevice(t)
 	transport := &Device{transport: lowlevel.NewTransport(device, lowlevel.ChannelID{})}
 
-	require.NoError(t, transport.Close())
-	assert.True(t, device.closed)
+	if err := transport.Close(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := device.closed; !got {
+		t.Errorf("got false, want true")
+	}
 }
 
 func newScriptedDevice(t testing.TB, responses ...[]byte) *scriptedDevice {
@@ -91,16 +137,25 @@ func responseBytes(t testing.TB, cid lowlevel.ChannelID, command lowlevel.Comman
 	t.Helper()
 
 	message, err := lowlevel.NewMessage(cid, command, data)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	var reports bytes.Buffer
 	_, err = message.WriteTo(&reports)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	encoded := reports.Bytes()
 	var response []byte
 	for len(encoded) > 0 {
-		require.GreaterOrEqual(t, len(encoded), reportSize)
+		{
+			got, limit := len(encoded), reportSize
+			if got < limit {
+				t.Fatalf("got %v, want greater than or equal to %v", got, limit)
+			}
+		}
 		response = append(response, encoded[1:reportSize]...)
 		encoded = encoded[reportSize:]
 	}

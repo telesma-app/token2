@@ -1,10 +1,10 @@
 module github.com/telesma-app/token2/examples/pcsc
 
-go 1.26.3
+go 1.27.0
 
 require (
 	github.com/telesma-app/pcsc v0.9.0
-	github.com/telesma-app/token2 v0.11.0
+	github.com/telesma-app/token2 v0.11.1
 )
 
 require (

@@ -3,12 +3,11 @@ package hid
 import (
 	"bytes"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/telesma-app/iso7816"
 	"github.com/telesma-app/token2/internal/protocol"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 type featureResponse struct {
@@ -47,16 +46,52 @@ func TestTransmitSingleChunk(t *testing.T) {
 	script := &featureScript{responses: []featureResponse{{report: response, n: len(response)}}}
 
 	got, err := (transceiver{device: script}).Transmit(t.Context(), []byte{0x80, 0x33})
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	assert.Equal(t, []byte{0xd1, 0x00, 0x90, 0x00}, got)
-	require.Len(t, script.sent, 1)
-	assert.Len(t, script.sent[0], reportSize)
-	assert.Equal(t, byte(reportMagic), script.sent[0][1])
-	assert.Equal(t, byte(0), script.sent[0][2])
-	assert.Equal(t, byte(2), script.sent[0][3])
-	assert.Equal(t, []byte{0x80, 0x33}, script.sent[0][4:6])
-	assert.Equal(t, make([]byte, reportSize-6), script.sent[0][6:])
+	{
+		want, got := []byte{0xd1, 0x00, 0x90, 0x00}, got
+		if (got == nil) != (want == nil) || !bytes.Equal(got, want) {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	if got, want := len(script.sent), 1; got != want {
+		t.Fatalf("got length %d, want %d", got, want)
+	}
+	if got, want := len(script.sent[0]), reportSize; got != want {
+		t.Errorf("got length %d, want %d", got, want)
+	}
+	{
+		want, got := byte(reportMagic), script.sent[0][1]
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := byte(0), script.sent[0][2]
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := byte(2), script.sent[0][3]
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := []byte{0x80, 0x33}, script.sent[0][4:6]
+		if (got == nil) != (want == nil) || !bytes.Equal(got, want) {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := make([]byte, reportSize-6), script.sent[0][6:]
+		if (got == nil) != (want == nil) || !bytes.Equal(got, want) {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
 }
 
 func TestTransmitMultipleChunks(t *testing.T) {
@@ -75,19 +110,73 @@ func TestTransmitMultipleChunks(t *testing.T) {
 	}}
 
 	got, err := (transceiver{device: script}).Transmit(t.Context(), command)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	assert.Equal(t, append(first, second...), got)
-	require.Len(t, script.sent, 3)
-	assert.Equal(t, byte(reportMore|0), script.sent[0][2])
-	assert.Equal(t, byte(chunkSize), script.sent[0][3])
-	assert.Equal(t, command[:chunkSize], script.sent[0][4:])
-	assert.Equal(t, byte(reportMore|1), script.sent[1][2])
-	assert.Equal(t, byte(chunkSize), script.sent[1][3])
-	assert.Equal(t, command[chunkSize:2*chunkSize], script.sent[1][4:])
-	assert.Equal(t, byte(2), script.sent[2][2])
-	assert.Equal(t, byte(8), script.sent[2][3])
-	assert.Equal(t, command[2*chunkSize:], script.sent[2][4:12])
+	{
+		want, got := append(first, second...), got
+		if (got == nil) != (want == nil) || !bytes.Equal(got, want) {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	if got, want := len(script.sent), 3; got != want {
+		t.Fatalf("got length %d, want %d", got, want)
+	}
+	{
+		want, got := byte(reportMore|0), script.sent[0][2]
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := byte(chunkSize), script.sent[0][3]
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := command[:chunkSize], script.sent[0][4:]
+		if (got == nil) != (want == nil) || !bytes.Equal(got, want) {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := byte(reportMore|1), script.sent[1][2]
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := byte(chunkSize), script.sent[1][3]
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := command[chunkSize:2*chunkSize], script.sent[1][4:]
+		if (got == nil) != (want == nil) || !bytes.Equal(got, want) {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := byte(2), script.sent[2][2]
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := byte(8), script.sent[2][3]
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		want, got := command[2*chunkSize:], script.sent[2][4:12]
+		if (got == nil) != (want == nil) || !bytes.Equal(got, want) {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
 }
 
 func TestTransmitWaitsForPendingReport(t *testing.T) {
@@ -101,9 +190,18 @@ func TestTransmitWaitsForPendingReport(t *testing.T) {
 	}}
 
 	got, err := (transceiver{device: script}).Transmit(t.Context(), []byte{0x80, 0x33})
-	require.NoError(t, err)
-	assert.Equal(t, []byte{0x90, 0x00}, got)
-	assert.Empty(t, script.responses)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	{
+		want, got := []byte{0x90, 0x00}, got
+		if (got == nil) != (want == nil) || !bytes.Equal(got, want) {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	if got := script.responses; len(got) != 0 {
+		t.Errorf("got non-empty value %#v", got)
+	}
 }
 
 func TestTransmitRejectsMalformedReports(t *testing.T) {
@@ -172,8 +270,15 @@ func TestTransmitRejectsMalformedReports(t *testing.T) {
 
 			_, err := (transceiver{device: script}).Transmit(t.Context(), []byte{0x80, 0x33})
 
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), tt.wantErr)
+			if err == nil {
+				t.Fatalf("expected an error")
+			}
+			{
+				container, element := err.Error(), tt.wantErr
+				if !strings.Contains(container, element) {
+					t.Errorf("value does not contain %#v", element)
+				}
+			}
 		})
 	}
 }
@@ -181,12 +286,22 @@ func TestTransmitRejectsMalformedReports(t *testing.T) {
 func TestTransmitPropagatesFeatureReportErrors(t *testing.T) {
 	sendErr := errors.New("send failed")
 	_, err := (transceiver{device: &featureScript{sendErr: sendErr}}).Transmit(t.Context(), []byte{0x80, 0x33})
-	assert.ErrorIs(t, err, sendErr)
+	{
+		err, target := err, sendErr
+		if !errors.Is(err, target) {
+			t.Errorf("got error %v, want errors.Is(error, %#v)", err, target)
+		}
+	}
 
 	receiveErr := errors.New("receive failed")
 	script := &featureScript{responses: []featureResponse{{err: receiveErr}}}
 	_, err = (transceiver{device: script}).Transmit(t.Context(), []byte{0x80, 0x33})
-	assert.ErrorIs(t, err, receiveErr)
+	{
+		err, target := err, receiveErr
+		if !errors.Is(err, target) {
+			t.Errorf("got error %v, want errors.Is(error, %#v)", err, target)
+		}
+	}
 }
 
 func TestDeviceClose(t *testing.T) {
@@ -196,8 +311,15 @@ func TestDeviceClose(t *testing.T) {
 
 	err := device.Close()
 
-	assert.ErrorIs(t, err, closeErr)
-	assert.True(t, script.closed)
+	{
+		err, target := err, closeErr
+		if !errors.Is(err, target) {
+			t.Errorf("got error %v, want errors.Is(error, %#v)", err, target)
+		}
+	}
+	if got := script.closed; !got {
+		t.Errorf("got false, want true")
+	}
 }
 
 func TestDeviceInfo(t *testing.T) {
@@ -209,13 +331,29 @@ func TestDeviceInfo(t *testing.T) {
 	device := &Device{device: script}
 
 	info, err := device.DeviceInfo(t.Context())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	assert.Equal(t, serial, info.SerialNumber)
-	require.Len(t, script.sent, 1)
+	{
+		want, got := serial, info.SerialNumber
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	if got, want := len(script.sent), 1; got != want {
+		t.Fatalf("got length %d, want %d", got, want)
+	}
 	command, err := protocol.SerialNumberCommand(iso7816.EncodingExtended).MarshalBinary()
-	require.NoError(t, err)
-	assert.Equal(t, command, script.sent[0][4:4+len(command)])
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	{
+		want, got := command, script.sent[0][4:4+len(command)]
+		if (got == nil) != (want == nil) || !bytes.Equal(got, want) {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
 }
 
 func TestDeviceInfoStatusError(t *testing.T) {
@@ -226,9 +364,21 @@ func TestDeviceInfoStatusError(t *testing.T) {
 	_, err := device.DeviceInfo(t.Context())
 
 	var statusErr *iso7816.APDUError
-	require.ErrorAs(t, err, &statusErr)
-	assert.Equal(t, iso7816.StatusWord(0x6a82), statusErr.StatusWord())
-	assert.Contains(t, err.Error(), "read serial number")
+	if err := err; !errors.As(err, &statusErr) {
+		t.Fatalf("error %v does not match requested type", err)
+	}
+	{
+		want, got := iso7816.StatusWord(0x6a82), statusErr.StatusWord()
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
+	{
+		container, element := err.Error(), "read serial number"
+		if !strings.Contains(container, element) {
+			t.Errorf("value does not contain %#v", element)
+		}
+	}
 }
 
 func responseReport(sequence byte, more bool, payload []byte) []byte {

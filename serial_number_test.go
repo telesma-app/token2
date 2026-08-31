@@ -3,15 +3,19 @@ package token2
 import (
 	"errors"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestParseSerialNumber(t *testing.T) {
 	serial, err := ParseSerialNumber([]byte{0xd1, 0x0e, '7', '2', '1', '0', '2', '9', '3', '5', '7', '8', '0', '5', '2', '8'})
-	require.NoError(t, err)
-	assert.Equal(t, "72102935780528", serial)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	{
+		want, got := "72102935780528", serial
+		if got != want {
+			t.Errorf("got %#v, want %#v", got, want)
+		}
+	}
 }
 
 func TestParseSerialNumberRejectsMalformedData(t *testing.T) {
@@ -24,7 +28,11 @@ func TestParseSerialNumberRejectsMalformedData(t *testing.T) {
 
 	for _, response := range tests {
 		_, err := ParseSerialNumber(response)
-		require.Error(t, err)
-		assert.True(t, errors.Is(err, ErrInvalidSerialResponse))
+		if err == nil {
+			t.Fatalf("expected an error")
+		}
+		if got := errors.Is(err, ErrInvalidSerialResponse); !got {
+			t.Errorf("got false, want true")
+		}
 	}
 }
