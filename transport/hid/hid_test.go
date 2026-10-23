@@ -2,6 +2,7 @@ package hid
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -268,20 +269,20 @@ func TestDeviceClose(t *testing.T) {
 	}
 }
 
-func TestDeviceInfo(t *testing.T) {
-	const serial = "0123456789abcdef"
-	payload := append([]byte{0xd1, byte(len(serial))}, serial...)
+func TestSerialNumber(t *testing.T) {
+	const wantSerial = "0123456789abcdef"
+	payload := append([]byte{0xd1, byte(len(wantSerial))}, wantSerial...)
 	payload = append(payload, 0x90, 0x00)
 	response := responseReport(0, false, payload)
 	script := &featureScript{responses: []featureResponse{{report: response, n: len(response)}}}
 	device := &Device{device: script}
 
-	info, err := device.DeviceInfo(t.Context())
+	serial, err := device.SerialNumber(t.Context())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if got, want := info.SerialNumber, serial; got != want {
+	if got, want := serial, wantSerial; got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
 	if got, want := len(script.sent), 1; got != want {
@@ -296,12 +297,12 @@ func TestDeviceInfo(t *testing.T) {
 	}
 }
 
-func TestDeviceInfoStatusError(t *testing.T) {
+func TestSerialNumberStatusError(t *testing.T) {
 	response := responseReport(0, false, []byte{0x6a, 0x82})
 	script := &featureScript{responses: []featureResponse{{report: response, n: len(response)}}}
 	device := &Device{device: script}
 
-	_, err := device.DeviceInfo(t.Context())
+	_, err := device.SerialNumber(t.Context())
 
 	var statusErr *iso7816.APDUError
 	if err := err; !errors.As(err, &statusErr) {
@@ -325,4 +326,27 @@ func responseReport(sequence byte, more bool, payload []byte) []byte {
 	report[3] = byte(len(payload))
 	copy(report[4:], payload)
 	return report
+}
+
+func TestSerialNumberCancelsPendingFeatureResponse(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	pending := &cancelPendingDevice{cancel: cancel}
+	_, err := (&Device{device: pending}).SerialNumber(ctx)
+	if !errors.Is(err, context.Canceled) || pending.reads != 1 {
+		t.Fatalf("error = %v, reads = %d", err, pending.reads)
+	}
+}
+
+type cancelPendingDevice struct {
+	featureScript
+	cancel context.CancelFunc
+	reads  int
+}
+
+func (d *cancelPendingDevice) GetFeatureReport(report []byte) (int, error) {
+	d.reads++
+	d.cancel()
+	report[1] = reportMagic
+	report[2] = reportPending
+	return len(report), nil
 }

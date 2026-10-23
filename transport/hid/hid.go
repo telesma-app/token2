@@ -51,9 +51,8 @@ func (d *Device) Close() error {
 	return d.device.Close()
 }
 
-// DeviceInfo returns transport-neutral information derived from the device
-// serial number.
-func (d *Device) DeviceInfo(ctx context.Context) (token2.DeviceInfo, error) {
+// SerialNumber reads the full serial number reported by the device.
+func (d *Device) SerialNumber(ctx context.Context) (string, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -64,19 +63,13 @@ func (d *Device) DeviceInfo(ctx context.Context) (token2.DeviceInfo, error) {
 		iso7816.WithMoreDataStatusBytes(0x61, 0x9f),
 	)
 	if err != nil {
-		return token2.DeviceInfo{}, err
+		return "", err
 	}
 	if err := response.APDUError(); err != nil {
-		return token2.DeviceInfo{}, fmt.Errorf("read serial number: %w", err)
+		return "", fmt.Errorf("read serial number: %w", err)
 	}
 
-	serialNumber, err := token2.ParseSerialNumber(response.Data)
-	if err != nil {
-		return token2.DeviceInfo{}, err
-	}
-
-	info, _ := token2.Identify(serialNumber)
-	return info, nil
+	return token2.ParseSerialNumber(response.Data)
 }
 
 type transceiver struct {
@@ -85,8 +78,11 @@ type transceiver struct {
 
 var _ iso7816.Card = transceiver{}
 
-func (t transceiver) Transmit(_ context.Context, command []byte) ([]byte, error) {
+func (t transceiver) Transmit(ctx context.Context, command []byte) ([]byte, error) {
 	for offset, sequence := 0, byte(0); offset < len(command); sequence++ {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		length := min(chunkSize, len(command)-offset)
 		report := make([]byte, reportSize)
 
@@ -107,6 +103,9 @@ func (t transceiver) Transmit(_ context.Context, command []byte) ([]byte, error)
 
 	var response []byte
 	for sequence := byte(0); ; {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		report := make([]byte, reportSize)
 		n, err := t.device.GetFeatureReport(report)
 		if err != nil {

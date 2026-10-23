@@ -54,10 +54,13 @@ func (d *Device) Close() error {
 }
 
 // ATR returns information encoded in the device answer-to-reset.
-func (d *Device) ATR(_ context.Context) (token2.ATR, error) {
+func (d *Device) ATR(ctx context.Context) (token2.ATR, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
+	if err := ctx.Err(); err != nil {
+		return token2.ATR{}, err
+	}
 	status, err := d.card.Status()
 	if err != nil {
 		return token2.ATR{}, err
@@ -80,19 +83,21 @@ func (d *Device) Configuration(
 		err = errors.Join(err, d.card.EndTransaction(nativepcsc.DispositionLeaveCard))
 	}()
 
-	return d.configuration(ctx)
+	return ReadConfiguration(ctx, d.card)
 }
 
-func (d *Device) configuration(ctx context.Context) (token2.Configuration, error) {
-	if err := d.selectOTP(ctx); err != nil {
+// ReadConfiguration selects Token2 OTP on a borrowed card and leaves it selected.
+// The caller serializes access and manages the transaction.
+func ReadConfiguration(ctx context.Context, card iso7816.Card) (token2.Configuration, error) {
+	if err := selectOTP(ctx, card); err != nil {
 		return token2.Configuration{}, err
 	}
 
-	return d.readConfiguration(ctx)
+	return readConfiguration(ctx, card)
 }
 
-func (d *Device) selectOTP(ctx context.Context) error {
-	response, err := exchange(ctx, d.card, protocol.SelectOTPCommand())
+func selectOTP(ctx context.Context, card iso7816.Card) error {
+	response, err := exchange(ctx, card, protocol.SelectOTPCommand())
 	if err != nil {
 		return err
 	}
@@ -107,16 +112,16 @@ func (d *Device) selectOTP(ctx context.Context) error {
 	return responseError("select Token2 OTP application", response)
 }
 
-func (d *Device) selectFIDO(ctx context.Context) error {
-	response, err := exchange(ctx, d.card, protocol.SelectFIDOCommand())
+func selectFIDO(ctx context.Context, card iso7816.Card) error {
+	response, err := exchange(ctx, card, protocol.SelectFIDOCommand())
 	if err != nil {
 		return err
 	}
 	return responseError("select FIDO application", response)
 }
 
-func (d *Device) readConfiguration(ctx context.Context) (token2.Configuration, error) {
-	response, err := exchange(ctx, d.card, protocol.ConfigurationCommand())
+func readConfiguration(ctx context.Context, card iso7816.Card) (token2.Configuration, error) {
+	response, err := exchange(ctx, card, protocol.ConfigurationCommand())
 	if err != nil {
 		return token2.Configuration{}, err
 	}
@@ -127,18 +132,18 @@ func (d *Device) readConfiguration(ctx context.Context) (token2.Configuration, e
 	return token2.ParseConfiguration(response.Data)
 }
 
-func (d *Device) readSerialNumber(ctx context.Context) (iso7816.Response, error) {
+func readSerialNumber(ctx context.Context, card iso7816.Card) (iso7816.Response, error) {
 	return exchange(
 		ctx,
-		d.card,
+		card,
 		protocol.SerialNumberCommand(iso7816.EncodingShort),
 	)
 }
 
-func (d *Device) prepareLegacySerialNumber(ctx context.Context) error {
+func prepareLegacySerialNumber(ctx context.Context, card iso7816.Card) error {
 	response, err := exchange(
 		ctx,
-		d.card,
+		card,
 		protocol.LegacySerialNumberPreludeCommand(),
 	)
 	if err != nil {
@@ -148,65 +153,64 @@ func (d *Device) prepareLegacySerialNumber(ctx context.Context) error {
 	return responseError("prepare legacy serial-number command", response)
 }
 
-// DeviceInfo returns transport-neutral information derived from the device
-// serial number.
-func (d *Device) DeviceInfo(
+// SerialNumber reads the full serial number reported by the device.
+func (d *Device) SerialNumber(
 	ctx context.Context,
-) (info token2.DeviceInfo, err error) {
+) (serial string, err error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	if err := d.card.BeginTransaction(ctx); err != nil {
-		return token2.DeviceInfo{}, err
+		return "", err
 	}
 	defer func() {
 		err = errors.Join(err, d.card.EndTransaction(nativepcsc.DispositionLeaveCard))
 	}()
 
-	if err := d.selectOTP(ctx); err != nil {
-		return token2.DeviceInfo{}, err
+	return ReadSerialNumber(ctx, d.card)
+}
+
+// ReadSerialNumber reads the full serial on a borrowed card, changing its applet.
+// The caller serializes access and manages the transaction; no applet is restored.
+func ReadSerialNumber(ctx context.Context, card iso7816.Card) (string, error) {
+	if err := selectOTP(ctx, card); err != nil {
+		return "", err
 	}
 
-	response, err := d.readSerialNumber(ctx)
+	response, err := readSerialNumber(ctx, card)
 	if err != nil {
-		return token2.DeviceInfo{}, err
+		return "", err
 	}
 	if response.Status == statusInstructionNotSupported {
-		legacyErr := d.prepareLegacySerialNumber(ctx)
+		legacyErr := prepareLegacySerialNumber(ctx, card)
 		if legacyErr == nil {
-			response, err = d.readSerialNumber(ctx)
+			response, err = readSerialNumber(ctx, card)
 			if err != nil {
-				return token2.DeviceInfo{}, err
+				return "", err
 			}
 		} else {
 			var statusErr *iso7816.APDUError
 			if !errors.As(legacyErr, &statusErr) {
-				return token2.DeviceInfo{}, legacyErr
+				return "", legacyErr
 			}
 		}
 
 		if response.Status == statusInstructionNotSupported {
-			if err := d.selectFIDO(ctx); err != nil {
-				return token2.DeviceInfo{}, errors.Join(legacyErr, err)
+			if err := selectFIDO(ctx, card); err != nil {
+				return "", errors.Join(legacyErr, err)
 			}
 
-			response, err = d.readSerialNumber(ctx)
+			response, err = readSerialNumber(ctx, card)
 			if err != nil {
-				return token2.DeviceInfo{}, err
+				return "", err
 			}
 		}
 	}
 	if err := responseError("read serial number", response); err != nil {
-		return token2.DeviceInfo{}, err
+		return "", err
 	}
 
-	serialNumber, err := token2.ParseSerialNumber(response.Data)
-	if err != nil {
-		return token2.DeviceInfo{}, err
-	}
-
-	info, _ = token2.Identify(serialNumber)
-	return info, nil
+	return token2.ParseSerialNumber(response.Data)
 }
 
 func exchange(

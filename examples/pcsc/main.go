@@ -35,11 +35,11 @@ func run(ctx context.Context) (err error) {
 
 	fmt.Printf("PC/SC reader: %s\n", reader)
 
-	info, err := device.DeviceInfo(ctx)
+	serial, err := device.SerialNumber(ctx)
 	if err != nil {
-		fmt.Printf("Device information: unsupported or failed: %v\n", err)
+		fmt.Printf("Serial number: unsupported or failed: %v\n", err)
 	} else {
-		printDeviceInfo(info)
+		fmt.Printf("Serial number: %s\n", serial)
 	}
 
 	atr, err := device.ATR(ctx)
@@ -77,15 +77,12 @@ func findReader(filter string) (string, error) {
 
 func printATR(info token2.ATR) {
 	fmt.Printf("ATR: %x\n", info.Raw)
-	fmt.Printf("Product ID: %04x\n", info.ProductID)
-	fmt.Printf("Serial suffix: %s\n", info.SerialSuffix)
-}
-
-func printDeviceInfo(info token2.DeviceInfo) {
-	fmt.Printf("Serial number: %s\n", info.SerialNumber)
-	if name := info.ModelName(""); name != "" {
-		fmt.Printf("Model: %s\n", name)
+	if info.Identity == nil {
+		fmt.Println("ATR does not contain Token2 identity")
+		return
 	}
+	fmt.Printf("Product ID: %04x\n", info.Identity.ProductID)
+	fmt.Printf("Serial suffix: %s\n", info.Identity.SerialSuffix)
 }
 
 func printConfiguration(config token2.Configuration) {

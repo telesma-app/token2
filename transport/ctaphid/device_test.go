@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"sync"
 	"testing"
 
 	lowlevel "github.com/telesma-app/ctap/transport/ctaphid"
@@ -16,19 +17,41 @@ const (
 )
 
 type scriptedDevice struct {
+	t             testing.TB
+	cid           lowlevel.ChannelID
+	initReply     chan []byte
+	ready         chan struct{}
+	start         sync.Once
 	reads         *bytes.Reader
 	writes        bytes.Buffer
 	writeContexts []context.Context
 	closed        bool
 }
 
-func (d *scriptedDevice) Read(_ context.Context, p []byte) (int, error) {
-	return d.reads.Read(p)
+func (d *scriptedDevice) Read(ctx context.Context, p []byte) (int, error) {
+	select {
+	case <-ctx.Done():
+		return 0, ctx.Err()
+	case reply := <-d.initReply:
+		return copy(p, reply), nil
+	case <-d.ready:
+		return d.reads.Read(p)
+	}
 }
 
 func (d *scriptedDevice) Write(ctx context.Context, p []byte) (int, error) {
+	if p[5] == byte(lowlevel.CTAPHID_INIT)|initPacketBit {
+		data := append([]byte(nil), p[8:16]...)
+		data = append(data, d.cid[:]...)
+		data = append(data, 2, 1, 0, 0, 0x04)
+		d.initReply <- responseBytes(d.t, lowlevel.BROADCAST_CID, lowlevel.CTAPHID_INIT, data)
+		return len(p), nil
+	}
+
 	d.writeContexts = append(d.writeContexts, ctx)
-	return d.writes.Write(p)
+	n, err := d.writes.Write(p)
+	d.start.Do(func() { close(d.ready) })
+	return n, err
 }
 
 func (d *scriptedDevice) Close() error {
@@ -47,16 +70,16 @@ func TestATR(t *testing.T) {
 	}
 
 	device := newScriptedDevice(t, responseBytes(t, cid, CommandGetATR, atr))
-	transport := &Device{transport: lowlevel.NewTransport(device, cid)}
+	transport := &Device{transport: openTestTransport(t, device, cid)}
 
 	info, err := transport.ATR(atrCtx)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got, want := info.ProductID, uint16(0x0016); got != want {
+	if got, want := info.Identity.ProductID, uint16(0x0016); got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
-	if got, want := info.SerialSuffix, "35780528"; got != want {
+	if got, want := info.Identity.SerialSuffix, "35780528"; got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
 	if got, want := info.Raw, atr; (got == nil) != (want == nil) || !bytes.Equal(got, want) {
@@ -89,7 +112,7 @@ func TestATR(t *testing.T) {
 func TestATRRejectsMalformedResponse(t *testing.T) {
 	cid := lowlevel.ChannelID{1, 2, 3, 4}
 	device := newScriptedDevice(t, responseBytes(t, cid, CommandGetATR, []byte{1, 2, 3}))
-	transport := &Device{transport: lowlevel.NewTransport(device, cid)}
+	transport := &Device{transport: openTestTransport(t, device, cid)}
 
 	_, err := transport.ATR(t.Context())
 
@@ -100,7 +123,7 @@ func TestATRRejectsMalformedResponse(t *testing.T) {
 
 func TestClose(t *testing.T) {
 	device := newScriptedDevice(t)
-	transport := &Device{transport: lowlevel.NewTransport(device, lowlevel.ChannelID{})}
+	transport := &Device{transport: openTestTransport(t, device, lowlevel.ChannelID{})}
 
 	if err := transport.Close(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -146,3 +169,17 @@ func responseBytes(t testing.TB, cid lowlevel.ChannelID, command lowlevel.Comman
 }
 
 var _ lowlevel.Device = (*scriptedDevice)(nil)
+
+func openTestTransport(t testing.TB, raw *scriptedDevice, cid lowlevel.ChannelID) *lowlevel.Transport {
+	t.Helper()
+	raw.t = t
+	raw.cid = cid
+	raw.initReply = make(chan []byte, 1)
+	raw.ready = make(chan struct{})
+	transport, err := lowlevel.Open(t.Context(), raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = transport.Close() })
+	return transport
+}

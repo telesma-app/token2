@@ -44,8 +44,12 @@ func run(ctx context.Context) (err error) {
 
 	fmt.Printf("CTAPHID path: %s\n", path)
 	fmt.Printf("ATR: %x\n", info.Raw)
-	fmt.Printf("Product ID: %04x\n", info.ProductID)
-	fmt.Printf("Serial suffix: %s\n", info.SerialSuffix)
+	if info.Identity == nil {
+		fmt.Println("ATR does not contain Token2 identity")
+		return
+	}
+	fmt.Printf("Product ID: %04x\n", info.Identity.ProductID)
+	fmt.Printf("Serial suffix: %s\n", info.Identity.SerialSuffix)
 
 	return nil
 }

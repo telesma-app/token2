@@ -10,6 +10,7 @@ import (
 
 	"github.com/telesma-app/iso7816"
 	nativepcsc "github.com/telesma-app/pcsc"
+	"github.com/telesma-app/token2"
 )
 
 var (
@@ -122,10 +123,10 @@ func TestConfiguration(t *testing.T) {
 	if got, want := config.Raw, data; (got == nil) != (want == nil) || !bytes.Equal(got, want) {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
-	if got, want := config.TransferType, byte(0x02); got != want {
+	if got, want := config.TransferType, token2.TransferType(0x02); got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
-	if got, want := config.DeviceConfiguration, byte(0x2a); got != want {
+	if got, want := config.DeviceConfiguration, token2.DeviceConfiguration(0x2a); got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
 	if got := card.steps; len(got) != 0 {
@@ -247,7 +248,7 @@ func TestStatusErrors(t *testing.T) {
 				{command: selectOTPAPDU, response: statusResponse(0x6a82)},
 			},
 			call: func(d *Device) error {
-				_, err := d.DeviceInfo(t.Context())
+				_, err := d.SerialNumber(t.Context())
 				return err
 			},
 		},
@@ -261,7 +262,7 @@ func TestStatusErrors(t *testing.T) {
 				{command: selectFIDOAPDU, response: statusResponse(0x6a82)},
 			},
 			call: func(d *Device) error {
-				_, err := d.DeviceInfo(t.Context())
+				_, err := d.SerialNumber(t.Context())
 				return err
 			},
 		},
@@ -273,7 +274,7 @@ func TestStatusErrors(t *testing.T) {
 				{command: serialAPDU, response: statusResponse(0x6a80)},
 			},
 			call: func(d *Device) error {
-				_, err := d.DeviceInfo(t.Context())
+				_, err := d.SerialNumber(t.Context())
 				return err
 			},
 		},
@@ -298,101 +299,137 @@ func TestStatusErrors(t *testing.T) {
 	}
 }
 
-func TestDeviceInfoSequence(t *testing.T) {
-	serialData := []byte{0xd1, 0x0e, '7', '2', '1', '0', '2', '9', '3', '5', '7', '8', '0', '5', '2', '8'}
-	card := &scriptedCard{steps: []cardStep{
-		{command: selectOTPAPDU, response: successfulResponse(nil)},
-		{command: serialAPDU, response: successfulResponse(serialData)},
-	}}
-	device := &Device{card: card}
+func TestSerialNumberSequence(t *testing.T) {
+	for _, borrowed := range []bool{false, true} {
+		t.Run(fmt.Sprintf("borrowed=%t", borrowed), func(t *testing.T) {
+			serialData := []byte{0xd1, 0x0e, '7', '2', '1', '0', '2', '9', '3', '5', '7', '8', '0', '5', '2', '8'}
+			card := &scriptedCard{steps: []cardStep{
+				{command: selectOTPAPDU, response: successfulResponse(nil)},
+				{command: serialAPDU, response: successfulResponse(serialData)},
+			}}
+			device := &Device{card: card}
 
-	info, err := device.DeviceInfo(t.Context())
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+			var serial string
+			var err error
+			transactions := 1
+			if borrowed {
+				transactions = 0
+				serial, err = ReadSerialNumber(t.Context(), card)
+			} else {
+				serial, err = device.SerialNumber(t.Context())
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 
-	if got, want := info.SerialNumber, "72102935780528"; got != want {
-		t.Errorf("got %#v, want %#v", got, want)
-	}
-	if got, want := info.FormFactor, "Mini USB-C PIN+"; got != want {
-		t.Errorf("got %#v, want %#v", got, want)
-	}
-	if got := card.steps; len(got) != 0 {
-		t.Errorf("got non-empty value %#v", got)
-	}
-	if got, want := card.begins, 1; got != want {
-		t.Errorf("got %#v, want %#v", got, want)
-	}
-	if got, want := card.ends, 1; got != want {
-		t.Errorf("got %#v, want %#v", got, want)
+			if got, want := serial, "72102935780528"; got != want {
+				t.Errorf("got %#v, want %#v", got, want)
+			}
+			if got := card.steps; len(got) != 0 {
+				t.Errorf("got non-empty value %#v", got)
+			}
+			if got, want := card.begins, transactions; got != want {
+				t.Errorf("got %#v, want %#v", got, want)
+			}
+			if got, want := card.ends, transactions; got != want {
+				t.Errorf("got %#v, want %#v", got, want)
+			}
+			if card.closed {
+				t.Fatal("serial read closed the borrowed card")
+			}
+		})
 	}
 }
 
-func TestDeviceInfoSequenceFallsBackToLegacyPrelude(t *testing.T) {
-	serialData := []byte{0xd1, 0x0e, '7', '6', '1', '0', '5', '0', '4', '4', '9', '3', '5', '3', '5', '6'}
-	card := &scriptedCard{steps: []cardStep{
-		{command: selectOTPAPDU, response: successfulResponse(nil)},
-		{command: serialAPDU, response: statusResponse(0x6d00)},
-		{command: legacySerialPreludeAPDU, response: statusResponse(0x6101)},
-		{command: getLegacyPreludeResponseAPDU, response: successfulResponse([]byte{0x00})},
-		{command: serialAPDU, response: statusResponse(0x6110)},
-		{command: getSerialResponseAPDU, response: successfulResponse(serialData)},
-	}}
-	device := &Device{card: card}
+func TestSerialNumberSequenceFallsBackToLegacyPrelude(t *testing.T) {
+	for _, borrowed := range []bool{false, true} {
+		t.Run(fmt.Sprintf("borrowed=%t", borrowed), func(t *testing.T) {
+			serialData := []byte{0xd1, 0x0e, '7', '6', '1', '0', '5', '0', '4', '4', '9', '3', '5', '3', '5', '6'}
+			card := &scriptedCard{steps: []cardStep{
+				{command: selectOTPAPDU, response: successfulResponse(nil)},
+				{command: serialAPDU, response: statusResponse(0x6d00)},
+				{command: legacySerialPreludeAPDU, response: statusResponse(0x6101)},
+				{command: getLegacyPreludeResponseAPDU, response: successfulResponse([]byte{0x00})},
+				{command: serialAPDU, response: statusResponse(0x6110)},
+				{command: getSerialResponseAPDU, response: successfulResponse(serialData)},
+			}}
+			device := &Device{card: card}
 
-	info, err := device.DeviceInfo(t.Context())
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+			var serial string
+			var err error
+			transactions := 1
+			if borrowed {
+				transactions = 0
+				serial, err = ReadSerialNumber(t.Context(), card)
+			} else {
+				serial, err = device.SerialNumber(t.Context())
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 
-	if got, want := info.SerialNumber, "76105044935356"; got != want {
-		t.Errorf("got %#v, want %#v", got, want)
-	}
-	if got, want := info.FormFactor, "USB-A PIN+ NFC"; got != want {
-		t.Errorf("got %#v, want %#v", got, want)
-	}
-	if got := card.steps; len(got) != 0 {
-		t.Errorf("got non-empty value %#v", got)
-	}
-	if got, want := card.begins, 1; got != want {
-		t.Errorf("got %#v, want %#v", got, want)
-	}
-	if got, want := card.ends, 1; got != want {
-		t.Errorf("got %#v, want %#v", got, want)
+			if got, want := serial, "76105044935356"; got != want {
+				t.Errorf("got %#v, want %#v", got, want)
+			}
+			if got := card.steps; len(got) != 0 {
+				t.Errorf("got non-empty value %#v", got)
+			}
+			if got, want := card.begins, transactions; got != want {
+				t.Errorf("got %#v, want %#v", got, want)
+			}
+			if got, want := card.ends, transactions; got != want {
+				t.Errorf("got %#v, want %#v", got, want)
+			}
+			if card.closed {
+				t.Fatal("serial read closed the borrowed card")
+			}
+		})
 	}
 }
 
-func TestDeviceInfoSequenceFallsBackToFIDO(t *testing.T) {
-	serialData := []byte{0xd1, 0x0e, '7', '6', '1', '0', '5', '0', '4', '4', '9', '3', '5', '3', '5', '6'}
-	card := &scriptedCard{steps: []cardStep{
-		{command: selectOTPAPDU, response: successfulResponse(nil)},
-		{command: serialAPDU, response: statusResponse(0x6d00)},
-		{command: legacySerialPreludeAPDU, response: statusResponse(0x6d00)},
-		{command: selectFIDOAPDU, response: successfulResponse([]byte("U2F_V2"))},
-		{command: serialAPDU, response: statusResponse(0x6110)},
-		{command: getSerialResponseAPDU, response: successfulResponse(serialData)},
-	}}
-	device := &Device{card: card}
+func TestSerialNumberSequenceFallsBackToFIDO(t *testing.T) {
+	for _, borrowed := range []bool{false, true} {
+		t.Run(fmt.Sprintf("borrowed=%t", borrowed), func(t *testing.T) {
+			serialData := []byte{0xd1, 0x0e, '7', '6', '1', '0', '5', '0', '4', '4', '9', '3', '5', '3', '5', '6'}
+			card := &scriptedCard{steps: []cardStep{
+				{command: selectOTPAPDU, response: successfulResponse(nil)},
+				{command: serialAPDU, response: statusResponse(0x6d00)},
+				{command: legacySerialPreludeAPDU, response: statusResponse(0x6d00)},
+				{command: selectFIDOAPDU, response: successfulResponse([]byte("U2F_V2"))},
+				{command: serialAPDU, response: statusResponse(0x6110)},
+				{command: getSerialResponseAPDU, response: successfulResponse(serialData)},
+			}}
+			device := &Device{card: card}
 
-	info, err := device.DeviceInfo(t.Context())
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+			var serial string
+			var err error
+			transactions := 1
+			if borrowed {
+				transactions = 0
+				serial, err = ReadSerialNumber(t.Context(), card)
+			} else {
+				serial, err = device.SerialNumber(t.Context())
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 
-	if got, want := info.SerialNumber, "76105044935356"; got != want {
-		t.Errorf("got %#v, want %#v", got, want)
-	}
-	if got, want := info.FormFactor, "USB-A PIN+ NFC"; got != want {
-		t.Errorf("got %#v, want %#v", got, want)
-	}
-	if got := card.steps; len(got) != 0 {
-		t.Errorf("got non-empty value %#v", got)
-	}
-	if got, want := card.begins, 1; got != want {
-		t.Errorf("got %#v, want %#v", got, want)
-	}
-	if got, want := card.ends, 1; got != want {
-		t.Errorf("got %#v, want %#v", got, want)
+			if got, want := serial, "76105044935356"; got != want {
+				t.Errorf("got %#v, want %#v", got, want)
+			}
+			if got := card.steps; len(got) != 0 {
+				t.Errorf("got non-empty value %#v", got)
+			}
+			if got, want := card.begins, transactions; got != want {
+				t.Errorf("got %#v, want %#v", got, want)
+			}
+			if got, want := card.ends, transactions; got != want {
+				t.Errorf("got %#v, want %#v", got, want)
+			}
+			if card.closed {
+				t.Fatal("serial read closed the borrowed card")
+			}
+		})
 	}
 }
 
@@ -410,10 +447,10 @@ func TestATR(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if got, want := info.ProductID, uint16(0x0016); got != want {
+	if got, want := info.Identity.ProductID, uint16(0x0016); got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
-	if got, want := info.SerialSuffix, "35780528"; got != want {
+	if got, want := info.Identity.SerialSuffix, "35780528"; got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
 }
@@ -430,5 +467,49 @@ func TestDeviceClose(t *testing.T) {
 	}
 	if got := card.closed; !got {
 		t.Errorf("got false, want true")
+	}
+}
+
+func TestReadConfigurationBorrowsCard(t *testing.T) {
+	card := &scriptedCard{steps: []cardStep{
+		{command: selectOTPAPDU, response: successfulResponse(nil)},
+		{command: configAPDU, response: successfulResponse([]byte{2})},
+	}}
+	configuration, err := ReadConfiguration(t.Context(), card)
+	if err != nil || configuration.TransferType != 2 {
+		t.Fatalf("configuration = %#v, error = %v", configuration, err)
+	}
+	if card.begins != 0 || card.ends != 0 || card.closed || len(card.steps) != 0 {
+		t.Fatalf("borrowed lifecycle: begins = %d, ends = %d, closed = %t, remaining = %d", card.begins, card.ends, card.closed, len(card.steps))
+	}
+}
+
+func TestSerialNumberRetainsValueAfterEndTransactionFailure(t *testing.T) {
+	want := errors.New("end transaction failed")
+	serial := "66202208969539"
+	card := &scriptedCard{endErr: want, steps: []cardStep{
+		{command: selectOTPAPDU, response: successfulResponse(nil)},
+		{command: serialAPDU, response: successfulResponse(append([]byte{0xd1, byte(len(serial))}, serial...))},
+	}}
+	value, err := (&Device{card: card}).SerialNumber(t.Context())
+	if value != serial || !errors.Is(err, want) {
+		t.Fatalf("serial = %q, error = %v", value, err)
+	}
+}
+
+func TestReadSerialNumberFIDOAfterSuccessfulLegacyPrelude(t *testing.T) {
+	// Some generations accept the prelude but still require the FIDO applet.
+	serial := "66202208969539"
+	card := &scriptedCard{steps: []cardStep{
+		{command: selectOTPAPDU, response: successfulResponse(nil)},
+		{command: serialAPDU, response: statusResponse(0x6d00)},
+		{command: legacySerialPreludeAPDU, response: successfulResponse([]byte{0})},
+		{command: serialAPDU, response: statusResponse(0x6d00)},
+		{command: selectFIDOAPDU, response: successfulResponse([]byte("U2F_V2"))},
+		{command: serialAPDU, response: successfulResponse(append([]byte{0xd1, byte(len(serial))}, serial...))},
+	}}
+	value, err := ReadSerialNumber(t.Context(), card)
+	if err != nil || value != serial || len(card.steps) != 0 {
+		t.Fatalf("serial = %q, error = %v, remaining = %d", value, err, len(card.steps))
 	}
 }

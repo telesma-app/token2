@@ -3,17 +3,15 @@ package main
 import (
 	"bytes"
 	"testing"
-
-	"github.com/telesma-app/token2"
 )
 
 func TestMonitorResultsPrintsAccumulatedSummary(t *testing.T) {
 	results := &monitorResults{
 		attempts: 3,
 		failures: 1,
-		serials: map[string]token2.DeviceInfo{
-			"72102935780528": {SerialNumber: "72102935780528"},
-			"66103930925563": {SerialNumber: "66103930925563"},
+		serials: map[string]struct{}{
+			"72102935780528": {},
+			"66103930925563": {},
 		},
 	}
 	var output bytes.Buffer

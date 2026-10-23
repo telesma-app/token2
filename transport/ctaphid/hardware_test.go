@@ -29,5 +29,5 @@ func TestHardware(t *testing.T) {
 		t.Fatalf("got empty value %#v, want non-empty", got)
 	}
 	t.Logf("ATR: %x", atr.Raw)
-	t.Logf("product ID: %04x, serial suffix: %s", atr.ProductID, atr.SerialSuffix)
+	t.Logf("product ID: %04x, serial suffix: %s", atr.Identity.ProductID, atr.Identity.SerialSuffix)
 }

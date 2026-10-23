@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/telesma-app/iso7816"
-	"github.com/telesma-app/token2"
 )
 
 func TestHardware(t *testing.T) {
@@ -28,11 +27,11 @@ func TestHardware(t *testing.T) {
 
 	// Identity must remain readable even on generations that do not expose
 	// the optional configuration command.
-	info, err := device.DeviceInfo(t.Context())
+	serial, err := device.SerialNumber(t.Context())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got := info.SerialNumber; len(got) == 0 {
+	if got := serial; len(got) == 0 {
 		t.Fatalf("got empty value %#v, want non-empty", got)
 	}
 
@@ -56,7 +55,7 @@ func TestHardware(t *testing.T) {
 	}
 
 	atr, err := device.ATR(t.Context())
-	if errors.Is(err, token2.ErrInvalidATR) {
+	if err == nil && atr.Identity == nil {
 		t.Logf("ATR does not contain Token2 identity data: %v", err)
 	} else {
 		if err != nil {

@@ -14,7 +14,6 @@ import (
 
 	"github.com/telesma-app/iso7816"
 	nativepcsc "github.com/telesma-app/pcsc"
-	"github.com/telesma-app/token2"
 	"github.com/telesma-app/token2/internal/protocol"
 	token2pcsc "github.com/telesma-app/token2/transport/pcsc"
 )
@@ -48,7 +47,7 @@ func run(ctx context.Context, args []string, output io.Writer) (err error) {
 		err = errors.Join(err, receiver.Close())
 	}()
 
-	results := monitorResults{serials: make(map[string]token2.DeviceInfo)}
+	results := monitorResults{serials: make(map[string]struct{})}
 	defer results.print(output)
 
 	fmt.Fprintf(output, "Waiting for cards in PC/SC readers matching %q. Press Ctrl-C to finish.\n", *readerFilter)
@@ -81,7 +80,7 @@ func containsFold(value, substring string) bool {
 type monitorResults struct {
 	attempts int
 	failures int
-	serials  map[string]token2.DeviceInfo
+	serials  map[string]struct{}
 }
 
 func (results *monitorResults) inspect(
@@ -92,7 +91,7 @@ func (results *monitorResults) inspect(
 	results.attempts++
 	fmt.Fprintf(output, "INSERTED reader=%q atr=%x\n", reader.Name, reader.ATR)
 
-	info, err := readDeviceInfo(ctx, reader.Name)
+	serial, err := readSerialNumber(ctx, reader.Name)
 	if err != nil {
 		results.failures++
 		fmt.Fprintf(output, "FAIL reader=%q error=%v\n", reader.Name, err)
@@ -100,13 +99,11 @@ func (results *monitorResults) inspect(
 		return
 	}
 
-	results.serials[info.SerialNumber] = info
+	results.serials[serial] = struct{}{}
 	fmt.Fprintf(
 		output,
-		"OK serial=%s release=%s model=%q\n",
-		info.SerialNumber,
-		info.Release,
-		info.ModelName("unknown"),
+		"OK serial=%s\n",
+		serial,
 	)
 }
 
@@ -168,14 +165,14 @@ func traceDevice(ctx context.Context, output io.Writer, reader string) {
 	}
 }
 
-func readDeviceInfo(ctx context.Context, reader string) (info token2.DeviceInfo, err error) {
+func readSerialNumber(ctx context.Context, reader string) (serial string, err error) {
 	device, err := token2pcsc.Open(reader)
 	if err != nil {
-		return token2.DeviceInfo{}, fmt.Errorf("open PC/SC reader %q: %w", reader, err)
+		return "", fmt.Errorf("open PC/SC reader %q: %w", reader, err)
 	}
 	defer func() {
 		err = errors.Join(err, device.Close())
 	}()
 
-	return device.DeviceInfo(ctx)
+	return device.SerialNumber(ctx)
 }

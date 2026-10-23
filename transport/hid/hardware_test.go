@@ -21,14 +21,11 @@ func TestHardware(t *testing.T) {
 		}
 	})
 
-	info, err := device.DeviceInfo(t.Context())
+	serial, err := device.SerialNumber(t.Context())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got := info.SerialNumber; len(got) == 0 {
-		t.Fatalf("got empty value %#v, want non-empty", got)
-	}
-	if got := info.ModelName(""); len(got) == 0 {
+	if got := serial; len(got) == 0 {
 		t.Fatalf("got empty value %#v, want non-empty", got)
 	}
 }
