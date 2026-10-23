@@ -17,6 +17,7 @@ func (m Model) Name() string {
 	if m.Branding == "" || strings.HasPrefix(m.FormFactor, m.Branding+" ") {
 		return m.FormFactor
 	}
+
 	return m.Branding + " " + m.FormFactor
 }
 
@@ -96,6 +97,7 @@ func Identify(serialNumber string) (Model, bool) {
 			info.Release = candidate.Release
 			info.FormFactor = candidate.FormFactor
 			info.Branding = candidate.Branding
+
 			return info, true
 		}
 	}
@@ -106,6 +108,7 @@ func Identify(serialNumber string) (Model, bool) {
 			info.Release = candidate.Release
 			info.FormFactor = candidate.FormFactor
 			info.Branding = candidate.Branding
+
 			return info, true
 		}
 	}

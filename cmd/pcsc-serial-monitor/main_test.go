@@ -14,6 +14,7 @@ func TestMonitorResultsPrintsAccumulatedSummary(t *testing.T) {
 			"66103930925563": {},
 		},
 	}
+
 	var output bytes.Buffer
 
 	results.print(&output)

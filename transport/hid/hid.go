@@ -65,6 +65,7 @@ func (d *Device) SerialNumber(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	if err := response.APDUError(); err != nil {
 		return "", fmt.Errorf("read serial number: %w", err)
 	}
@@ -83,14 +84,17 @@ func (t transceiver) Transmit(ctx context.Context, command []byte) ([]byte, erro
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
+
 		length := min(chunkSize, len(command)-offset)
 		report := make([]byte, reportSize)
 
 		report[1] = reportMagic
+
 		report[2] = sequence & 0x0f
 		if offset+length < len(command) {
 			report[2] |= reportMore
 		}
+
 		report[3] = byte(length)
 		copy(report[4:], command[offset:offset+length])
 
@@ -102,21 +106,27 @@ func (t transceiver) Transmit(ctx context.Context, command []byte) ([]byte, erro
 	}
 
 	var response []byte
+
 	for sequence := byte(0); ; {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
+
 		report := make([]byte, reportSize)
+
 		n, err := t.device.GetFeatureReport(report)
 		if err != nil {
 			return nil, err
 		}
+
 		if n < 4 {
 			return nil, fmt.Errorf("Token2 HID report is %d bytes; need at least 4", n)
 		}
+
 		if n > len(report) {
 			return nil, fmt.Errorf("Token2 HID report length %d exceeds buffer size %d", n, len(report))
 		}
+
 		if report[1] != reportMagic {
 			return nil, fmt.Errorf("unexpected Token2 HID report magic: %02x", report[1])
 		}
@@ -125,6 +135,7 @@ func (t transceiver) Transmit(ctx context.Context, command []byte) ([]byte, erro
 		if flags == reportPending {
 			continue
 		}
+
 		if got := report[2] & 0x0f; got != sequence&0x0f {
 			return nil, fmt.Errorf("unexpected Token2 HID report sequence: got %d, want %d", got, sequence&0x0f)
 		}
@@ -133,6 +144,7 @@ func (t transceiver) Transmit(ctx context.Context, command []byte) ([]byte, erro
 		if length > chunkSize {
 			return nil, fmt.Errorf("Token2 HID report payload length %d exceeds %d", length, chunkSize)
 		}
+
 		if 4+length > n {
 			return nil, fmt.Errorf("Token2 HID report payload length %d exceeds received report size %d", length, n)
 		}

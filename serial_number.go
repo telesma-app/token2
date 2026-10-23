@@ -17,6 +17,7 @@ func ParseSerialNumber(response []byte) (string, error) {
 	if len(response) < 2 {
 		return "", fmt.Errorf("%w: got %d bytes, need at least 2", ErrInvalidSerialResponse, len(response))
 	}
+
 	if response[0] != protocol.SerialResponseTag {
 		return "", fmt.Errorf("%w: unexpected tag %02x", ErrInvalidSerialResponse, response[0])
 	}

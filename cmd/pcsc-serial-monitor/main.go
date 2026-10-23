@@ -35,6 +35,7 @@ func run(ctx context.Context, args []string, output io.Writer) (err error) {
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
+
 	if flags.NArg() != 0 {
 		return fmt.Errorf("unexpected arguments: %s", strings.Join(flags.Args(), " "))
 	}
@@ -50,7 +51,8 @@ func run(ctx context.Context, args []string, output io.Writer) (err error) {
 	results := monitorResults{serials: make(map[string]struct{})}
 	defer results.print(output)
 
-	fmt.Fprintf(output, "Waiting for cards in PC/SC readers matching %q. Press Ctrl-C to finish.\n", *readerFilter)
+	_, _ = fmt.Fprintf(output, "Waiting for cards in PC/SC readers matching %q. Press Ctrl-C to finish.\n", *readerFilter)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -59,6 +61,7 @@ func run(ctx context.Context, args []string, output io.Writer) (err error) {
 			if !ok {
 				return nil
 			}
+
 			if !containsFold(event.ReaderInfo.Name, *readerFilter) {
 				continue
 			}
@@ -67,7 +70,7 @@ func run(ctx context.Context, args []string, output io.Writer) (err error) {
 			case nativepcsc.DeviceEventCardInserted:
 				results.inspect(ctx, output, event.ReaderInfo)
 			case nativepcsc.DeviceEventCardRemoved:
-				fmt.Fprintf(output, "REMOVED reader=%q\n", event.ReaderInfo.Name)
+				_, _ = fmt.Fprintf(output, "REMOVED reader=%q\n", event.ReaderInfo.Name)
 			}
 		}
 	}
@@ -89,18 +92,21 @@ func (results *monitorResults) inspect(
 	reader *nativepcsc.ReaderInfo,
 ) {
 	results.attempts++
-	fmt.Fprintf(output, "INSERTED reader=%q atr=%x\n", reader.Name, reader.ATR)
+
+	_, _ = fmt.Fprintf(output, "INSERTED reader=%q atr=%x\n", reader.Name, reader.ATR)
 
 	serial, err := readSerialNumber(ctx, reader.Name)
 	if err != nil {
 		results.failures++
-		fmt.Fprintf(output, "FAIL reader=%q error=%v\n", reader.Name, err)
+
+		_, _ = fmt.Fprintf(output, "FAIL reader=%q error=%v\n", reader.Name, err)
 		traceDevice(ctx, output, reader.Name)
+
 		return
 	}
 
 	results.serials[serial] = struct{}{}
-	fmt.Fprintf(
+	_, _ = fmt.Fprintf(
 		output,
 		"OK serial=%s\n",
 		serial,
@@ -108,7 +114,7 @@ func (results *monitorResults) inspect(
 }
 
 func (results *monitorResults) print(output io.Writer) {
-	fmt.Fprintf(
+	_, _ = fmt.Fprintf(
 		output,
 		"SUMMARY attempts=%d unique_serials=%d failures=%d\n",
 		results.attempts,
@@ -120,16 +126,16 @@ func (results *monitorResults) print(output io.Writer) {
 func traceDevice(ctx context.Context, output io.Writer, reader string) {
 	card, err := nativepcsc.Open(reader)
 	if err != nil {
-		fmt.Fprintf(output, "TRACE open error=%v\n", err)
+		_, _ = fmt.Fprintf(output, "TRACE open error=%v\n", err)
 		return
 	}
-	defer card.Close()
+	defer func() { _ = card.Close() }()
 
 	if err := card.BeginTransaction(ctx); err != nil {
-		fmt.Fprintf(output, "TRACE begin-transaction error=%v\n", err)
+		_, _ = fmt.Fprintf(output, "TRACE begin-transaction error=%v\n", err)
 		return
 	}
-	defer card.EndTransaction(nativepcsc.DispositionLeaveCard)
+	defer func() { _ = card.EndTransaction(nativepcsc.DispositionLeaveCard) }()
 
 	commands := []struct {
 		name    string
@@ -151,10 +157,11 @@ func traceDevice(ctx context.Context, output io.Writer, reader string) {
 			iso7816.WithMoreDataStatusBytes(0x61, 0x9f),
 		)
 		if err != nil {
-			fmt.Fprintf(output, "TRACE %s transport_error=%v\n", current.name, err)
+			_, _ = fmt.Fprintf(output, "TRACE %s transport_error=%v\n", current.name, err)
 			return
 		}
-		fmt.Fprintf(
+
+		_, _ = fmt.Fprintf(
 			output,
 			"TRACE %s status=%s data_len=%d data_prefix=%x\n",
 			current.name,

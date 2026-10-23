@@ -137,6 +137,7 @@ func (c Configuration) Capabilities() (Capabilities, bool) {
 	if len(c.Raw) < 10 {
 		return Capabilities{}, false
 	}
+
 	return Capabilities{
 		FIDOPINSet:                      c.DeviceConfiguration&DeviceConfigurationFIDOPINSetMask != 0,
 		FIDOPINLocked:                   c.DeviceConfiguration&DeviceConfigurationFIDOPINLockedMask != 0,

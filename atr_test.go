@@ -24,6 +24,7 @@ func TestParseATR(t *testing.T) {
 		if got, want := info.Identity.ProductID, tc.pid; got != want {
 			t.Errorf("got %#v, want %#v", got, want)
 		}
+
 		if got, want := info.Identity.SerialSuffix, tc.suffix; got != want {
 			t.Errorf("got %#v, want %#v", got, want)
 		}
@@ -42,6 +43,7 @@ func TestParseATRRejectsMalformedData(t *testing.T) {
 		if err == nil {
 			t.Fatalf("expected an error")
 		}
+
 		if got := errors.Is(err, ErrInvalidATR); !got {
 			t.Errorf("got false, want true")
 		}
@@ -71,6 +73,7 @@ func TestParseATRRejectsTruncationAndBadChecksum(t *testing.T) {
 			t.Errorf("truncated at %d: %v", length, err)
 		}
 	}
+
 	valid[len(valid)-1] ^= 1
 	if _, err := ParseATR(valid); !errors.Is(err, ErrInvalidATR) {
 		t.Errorf("bad checksum: %v", err)

@@ -135,6 +135,18 @@ When `-reader` is omitted, the example prefers `Token2 Smart Reader` and then
 falls back to the first PC/SC reader with a card present. An explicit `-reader`
 filter never falls back to a different reader.
 
+## Lint
+
+With [golangci-lint v2](https://golangci-lint.run/docs/welcome/install/) installed,
+run:
+
+```sh
+make lint
+```
+
+This checks the root module and each example with the standard linters and
+`wsl_v5` using its default settings.
+
 ## Hardware tests
 
 Hardware tests are opt-in:

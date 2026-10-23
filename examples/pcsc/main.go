@@ -64,6 +64,7 @@ func findReader(filter string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("enumerate PC/SC readers: %w", err)
 		}
+
 		if filter == "" || strings.Contains(reader.Name, filter) {
 			return reader.Name, nil
 		}
@@ -72,15 +73,18 @@ func findReader(filter string) (string, error) {
 	if filter == "" {
 		return "", errors.New("no PC/SC readers found")
 	}
+
 	return "", fmt.Errorf("no PC/SC reader matching %q", filter)
 }
 
 func printATR(info token2.ATR) {
 	fmt.Printf("ATR: %x\n", info.Raw)
+
 	if info.Identity == nil {
 		fmt.Println("ATR does not contain Token2 identity")
 		return
 	}
+
 	fmt.Printf("Product ID: %04x\n", info.Identity.ProductID)
 	fmt.Printf("Serial suffix: %s\n", info.Identity.SerialSuffix)
 }

@@ -44,10 +44,12 @@ func run(ctx context.Context) (err error) {
 
 	fmt.Printf("CTAPHID path: %s\n", path)
 	fmt.Printf("ATR: %x\n", info.Raw)
+
 	if info.Identity == nil {
 		fmt.Println("ATR does not contain Token2 identity")
 		return
 	}
+
 	fmt.Printf("Product ID: %04x\n", info.Identity.ProductID)
 	fmt.Printf("Serial suffix: %s\n", info.Identity.SerialSuffix)
 
@@ -67,9 +69,11 @@ func findPath(ctx context.Context, path string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("enumerate HID devices: %w", err)
 		}
+
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
+
 		return info.Path, nil
 	}
 

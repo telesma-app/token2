@@ -51,6 +51,7 @@ func openDevice(
 				device.Close(),
 			)
 		}
+
 		return device, path, info, nil
 	}
 
@@ -58,6 +59,7 @@ func openDevice(
 		if err != nil {
 			return nil, "", "", fmt.Errorf("enumerate HID devices: %w", err)
 		}
+
 		if err := ctx.Err(); err != nil {
 			return nil, "", "", err
 		}
@@ -66,6 +68,7 @@ func openDevice(
 		if err != nil {
 			continue
 		}
+
 		serial, infoErr := device.SerialNumber(ctx)
 		if infoErr != nil {
 			_ = device.Close()

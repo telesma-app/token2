@@ -15,6 +15,7 @@ func TestHardware(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	t.Cleanup(func() {
 		if err := device.Close(); err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -25,9 +26,11 @@ func TestHardware(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if got := atr.Raw; len(got) == 0 {
 		t.Fatalf("got empty value %#v, want non-empty", got)
 	}
+
 	t.Logf("ATR: %x", atr.Raw)
 	t.Logf("product ID: %04x, serial suffix: %s", atr.Identity.ProductID, atr.Identity.SerialSuffix)
 }

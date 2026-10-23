@@ -33,7 +33,9 @@ func (d *featureScript) SendFeatureReport(report []byte) error {
 func (d *featureScript) GetFeatureReport(report []byte) (int, error) {
 	response := d.responses[0]
 	d.responses = d.responses[1:]
+
 	copy(report, response.report)
+
 	return response.n, response.err
 }
 
@@ -57,18 +59,23 @@ func TestTransmitSingleChunk(t *testing.T) {
 			t.Errorf("got %#v, want %#v", got, want)
 		}
 	}
+
 	if got, want := len(script.sent), 1; got != want {
 		t.Fatalf("got length %d, want %d", got, want)
 	}
+
 	if got, want := len(script.sent[0]), reportSize; got != want {
 		t.Errorf("got length %d, want %d", got, want)
 	}
+
 	if got, want := script.sent[0][1], byte(reportMagic); got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
+
 	if got, want := script.sent[0][2], byte(0); got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
+
 	if got, want := script.sent[0][3], byte(2); got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
@@ -78,6 +85,7 @@ func TestTransmitSingleChunk(t *testing.T) {
 			t.Errorf("got %#v, want %#v", got, want)
 		}
 	}
+
 	if got, want := script.sent[0][6:], make([]byte, reportSize-6); (got == nil) != (want == nil) || !bytes.Equal(got, want) {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
@@ -106,33 +114,43 @@ func TestTransmitMultipleChunks(t *testing.T) {
 	if got, want := got, append(first, second...); (got == nil) != (want == nil) || !bytes.Equal(got, want) {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
+
 	if got, want := len(script.sent), 3; got != want {
 		t.Fatalf("got length %d, want %d", got, want)
 	}
+
 	if got, want := script.sent[0][2], byte(reportMore); got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
+
 	if got, want := script.sent[0][3], byte(chunkSize); got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
+
 	if got, want := script.sent[0][4:], command[:chunkSize]; (got == nil) != (want == nil) || !bytes.Equal(got, want) {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
+
 	if got, want := script.sent[1][2], byte(reportMore|1); got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
+
 	if got, want := script.sent[1][3], byte(chunkSize); got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
+
 	if got, want := script.sent[1][4:], command[chunkSize:2*chunkSize]; (got == nil) != (want == nil) || !bytes.Equal(got, want) {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
+
 	if got, want := script.sent[2][2], byte(2); got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
+
 	if got, want := script.sent[2][3], byte(8); got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
+
 	if got, want := script.sent[2][4:12], command[2*chunkSize:]; (got == nil) != (want == nil) || !bytes.Equal(got, want) {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
@@ -158,6 +176,7 @@ func TestTransmitWaitsForPendingReport(t *testing.T) {
 			t.Errorf("got %#v, want %#v", got, want)
 		}
 	}
+
 	if got := script.responses; len(got) != 0 {
 		t.Errorf("got non-empty value %#v", got)
 	}
@@ -190,6 +209,7 @@ func TestTransmitRejectsMalformedReports(t *testing.T) {
 				report := append([]byte(nil), valid...)
 				report[1] = 0x22
 				report[2] = reportPending
+
 				return report
 			}(),
 			n:       reportSize,
@@ -200,6 +220,7 @@ func TestTransmitRejectsMalformedReports(t *testing.T) {
 			report: func() []byte {
 				report := append([]byte(nil), valid...)
 				report[2] = 1
+
 				return report
 			}(),
 			n:       reportSize,
@@ -210,6 +231,7 @@ func TestTransmitRejectsMalformedReports(t *testing.T) {
 			report: func() []byte {
 				report := append([]byte(nil), valid...)
 				report[3] = chunkSize + 1
+
 				return report
 			}(),
 			n:       reportSize,
@@ -228,10 +250,10 @@ func TestTransmitRejectsMalformedReports(t *testing.T) {
 			script := &featureScript{responses: []featureResponse{{report: tt.report, n: tt.n}}}
 
 			_, err := (transceiver{device: script}).Transmit(t.Context(), []byte{0x80, 0x33})
-
 			if err == nil {
 				t.Fatalf("expected an error")
 			}
+
 			if container, element := err.Error(), tt.wantErr; !strings.Contains(container, element) {
 				t.Errorf("value does not contain %#v", element)
 			}
@@ -241,6 +263,7 @@ func TestTransmitRejectsMalformedReports(t *testing.T) {
 
 func TestTransmitPropagatesFeatureReportErrors(t *testing.T) {
 	sendErr := errors.New("send failed")
+
 	_, err := (transceiver{device: &featureScript{sendErr: sendErr}}).Transmit(t.Context(), []byte{0x80, 0x33})
 	if err, target := err, sendErr; !errors.Is(err, target) {
 		t.Errorf("got error %v, want errors.Is(error, %#v)", err, target)
@@ -248,6 +271,7 @@ func TestTransmitPropagatesFeatureReportErrors(t *testing.T) {
 
 	receiveErr := errors.New("receive failed")
 	script := &featureScript{responses: []featureResponse{{err: receiveErr}}}
+
 	_, err = (transceiver{device: script}).Transmit(t.Context(), []byte{0x80, 0x33})
 	if err, target := err, receiveErr; !errors.Is(err, target) {
 		t.Errorf("got error %v, want errors.Is(error, %#v)", err, target)
@@ -264,6 +288,7 @@ func TestDeviceClose(t *testing.T) {
 	if err, target := err, closeErr; !errors.Is(err, target) {
 		t.Errorf("got error %v, want errors.Is(error, %#v)", err, target)
 	}
+
 	if got := script.closed; !got {
 		t.Errorf("got false, want true")
 	}
@@ -271,6 +296,7 @@ func TestDeviceClose(t *testing.T) {
 
 func TestSerialNumber(t *testing.T) {
 	const wantSerial = "0123456789abcdef"
+
 	payload := append([]byte{0xd1, byte(len(wantSerial))}, wantSerial...)
 	payload = append(payload, 0x90, 0x00)
 	response := responseReport(0, false, payload)
@@ -285,13 +311,16 @@ func TestSerialNumber(t *testing.T) {
 	if got, want := serial, wantSerial; got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
+
 	if got, want := len(script.sent), 1; got != want {
 		t.Fatalf("got length %d, want %d", got, want)
 	}
+
 	command, err := protocol.SerialNumberCommand(iso7816.EncodingExtended).MarshalBinary()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if got, want := script.sent[0][4:4+len(command)], command; (got == nil) != (want == nil) || !bytes.Equal(got, want) {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
@@ -308,9 +337,11 @@ func TestSerialNumberStatusError(t *testing.T) {
 	if err := err; !errors.As(err, &statusErr) {
 		t.Fatalf("error %v does not match requested type", err)
 	}
+
 	if got, want := statusErr.StatusWord(), iso7816.StatusWord(0x6a82); got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
+
 	if container, element := err.Error(), "read serial number"; !strings.Contains(container, element) {
 		t.Errorf("value does not contain %#v", element)
 	}
@@ -319,18 +350,22 @@ func TestSerialNumberStatusError(t *testing.T) {
 func responseReport(sequence byte, more bool, payload []byte) []byte {
 	report := make([]byte, reportSize)
 	report[1] = reportMagic
+
 	report[2] = sequence & 0x0f
 	if more {
 		report[2] |= reportMore
 	}
+
 	report[3] = byte(len(payload))
 	copy(report[4:], payload)
+
 	return report
 }
 
 func TestSerialNumberCancelsPendingFeatureResponse(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	pending := &cancelPendingDevice{cancel: cancel}
+
 	_, err := (&Device{device: pending}).SerialNumber(ctx)
 	if !errors.Is(err, context.Canceled) || pending.reads != 1 {
 		t.Fatalf("error = %v, reads = %d", err, pending.reads)
@@ -346,7 +381,9 @@ type cancelPendingDevice struct {
 func (d *cancelPendingDevice) GetFeatureReport(report []byte) (int, error) {
 	d.reads++
 	d.cancel()
+
 	report[1] = reportMagic
 	report[2] = reportPending
+
 	return len(report), nil
 }

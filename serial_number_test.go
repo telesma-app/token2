@@ -10,6 +10,7 @@ func TestParseSerialNumber(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if got, want := serial, "72102935780528"; got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
@@ -28,6 +29,7 @@ func TestParseSerialNumberRejectsMalformedData(t *testing.T) {
 		if err == nil {
 			t.Fatalf("expected an error")
 		}
+
 		if got := errors.Is(err, ErrInvalidSerialResponse); !got {
 			t.Errorf("got false, want true")
 		}

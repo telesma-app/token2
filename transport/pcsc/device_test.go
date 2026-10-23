@@ -81,6 +81,7 @@ func (c *scriptedCard) Transmit(ctx context.Context, command []byte) ([]byte, er
 
 	step := c.steps[0]
 	c.steps = c.steps[1:]
+
 	if !bytes.Equal(command, step.command) {
 		return nil, fmt.Errorf("unexpected APDU: got %x, want %x", command, step.command)
 	}
@@ -107,6 +108,7 @@ func statusResponse(status uint16) []byte {
 
 func TestConfiguration(t *testing.T) {
 	type contextKey struct{}
+
 	ctx := context.WithValue(t.Context(), contextKey{}, "config")
 	data := []byte{0x02, 0x2a, 0x86, 0x01, 0x10, 0x00, 0x02, 0x01, 0x02, 0x37}
 	card := &scriptedCard{steps: []cardStep{
@@ -123,24 +125,31 @@ func TestConfiguration(t *testing.T) {
 	if got, want := config.Raw, data; (got == nil) != (want == nil) || !bytes.Equal(got, want) {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
+
 	if got, want := config.TransferType, token2.TransferType(0x02); got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
+
 	if got, want := config.DeviceConfiguration, token2.DeviceConfiguration(0x2a); got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
+
 	if got := card.steps; len(got) != 0 {
 		t.Errorf("got non-empty value %#v", got)
 	}
+
 	if got, want := card.begins, 1; got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
+
 	if got, want := card.ends, 1; got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
+
 	if got, want := len(card.contexts), 2; got != want {
 		t.Fatalf("got length %d, want %d", got, want)
 	}
+
 	for _, got := range card.contexts {
 		{
 			want, got := "config", got.Value(contextKey{})
@@ -165,15 +174,19 @@ func TestConfigurationRejectsFailedSelect(t *testing.T) {
 	if err := err; !errors.As(err, &statusErr) {
 		t.Fatalf("error %v does not match requested type", err)
 	}
+
 	if err, target := err, ErrOTPApplicationNotAvailable; !errors.Is(err, target) {
 		t.Fatalf("got error %v, want errors.Is(error, %#v)", err, target)
 	}
+
 	if container, element := err.Error(), "select Token2 OTP application"; !strings.Contains(container, element) {
 		t.Errorf("value does not contain %#v", element)
 	}
+
 	if got := card.steps; len(got) != 0 {
 		t.Errorf("got non-empty value %#v", got)
 	}
+
 	if got, want := len(card.sent), 1; got != want {
 		t.Errorf("got length %d, want %d", got, want)
 	}
@@ -188,12 +201,15 @@ func TestConfigurationRejectsFailedTransaction(t *testing.T) {
 	if err, target := err, want; !errors.Is(err, target) {
 		t.Fatalf("got error %v, want errors.Is(error, %#v)", err, target)
 	}
+
 	if got, want := card.begins, 1; got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
-	if got := card.ends; !(got == 0) {
+
+	if got := card.ends; got != 0 {
 		t.Errorf("got %#v, want zero value", got)
 	}
+
 	if got := card.sent; len(got) != 0 {
 		t.Errorf("got non-empty value %#v", got)
 	}
@@ -214,9 +230,11 @@ func TestConfigurationPropagatesEndTransactionFailure(t *testing.T) {
 	if err, target := err, want; !errors.Is(err, target) {
 		t.Fatalf("got error %v, want errors.Is(error, %#v)", err, target)
 	}
+
 	if got, want := card.begins, 1; got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
+
 	if got, want := card.ends, 1; got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
@@ -289,9 +307,11 @@ func TestStatusErrors(t *testing.T) {
 			if err := err; !errors.As(err, &statusErr) {
 				t.Fatalf("error %v does not match requested type", err)
 			}
+
 			if container, element := err.Error(), tt.operation; !strings.Contains(container, element) {
 				t.Errorf("value does not contain %#v", element)
 			}
+
 			if got := card.steps; len(got) != 0 {
 				t.Errorf("got non-empty value %#v", got)
 			}
@@ -310,7 +330,9 @@ func TestSerialNumberSequence(t *testing.T) {
 			device := &Device{card: card}
 
 			var serial string
+
 			var err error
+
 			transactions := 1
 			if borrowed {
 				transactions = 0
@@ -318,6 +340,7 @@ func TestSerialNumberSequence(t *testing.T) {
 			} else {
 				serial, err = device.SerialNumber(t.Context())
 			}
+
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -325,15 +348,19 @@ func TestSerialNumberSequence(t *testing.T) {
 			if got, want := serial, "72102935780528"; got != want {
 				t.Errorf("got %#v, want %#v", got, want)
 			}
+
 			if got := card.steps; len(got) != 0 {
 				t.Errorf("got non-empty value %#v", got)
 			}
+
 			if got, want := card.begins, transactions; got != want {
 				t.Errorf("got %#v, want %#v", got, want)
 			}
+
 			if got, want := card.ends, transactions; got != want {
 				t.Errorf("got %#v, want %#v", got, want)
 			}
+
 			if card.closed {
 				t.Fatal("serial read closed the borrowed card")
 			}
@@ -356,7 +383,9 @@ func TestSerialNumberSequenceFallsBackToLegacyPrelude(t *testing.T) {
 			device := &Device{card: card}
 
 			var serial string
+
 			var err error
+
 			transactions := 1
 			if borrowed {
 				transactions = 0
@@ -364,6 +393,7 @@ func TestSerialNumberSequenceFallsBackToLegacyPrelude(t *testing.T) {
 			} else {
 				serial, err = device.SerialNumber(t.Context())
 			}
+
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -371,15 +401,19 @@ func TestSerialNumberSequenceFallsBackToLegacyPrelude(t *testing.T) {
 			if got, want := serial, "76105044935356"; got != want {
 				t.Errorf("got %#v, want %#v", got, want)
 			}
+
 			if got := card.steps; len(got) != 0 {
 				t.Errorf("got non-empty value %#v", got)
 			}
+
 			if got, want := card.begins, transactions; got != want {
 				t.Errorf("got %#v, want %#v", got, want)
 			}
+
 			if got, want := card.ends, transactions; got != want {
 				t.Errorf("got %#v, want %#v", got, want)
 			}
+
 			if card.closed {
 				t.Fatal("serial read closed the borrowed card")
 			}
@@ -402,7 +436,9 @@ func TestSerialNumberSequenceFallsBackToFIDO(t *testing.T) {
 			device := &Device{card: card}
 
 			var serial string
+
 			var err error
+
 			transactions := 1
 			if borrowed {
 				transactions = 0
@@ -410,6 +446,7 @@ func TestSerialNumberSequenceFallsBackToFIDO(t *testing.T) {
 			} else {
 				serial, err = device.SerialNumber(t.Context())
 			}
+
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -417,15 +454,19 @@ func TestSerialNumberSequenceFallsBackToFIDO(t *testing.T) {
 			if got, want := serial, "76105044935356"; got != want {
 				t.Errorf("got %#v, want %#v", got, want)
 			}
+
 			if got := card.steps; len(got) != 0 {
 				t.Errorf("got non-empty value %#v", got)
 			}
+
 			if got, want := card.begins, transactions; got != want {
 				t.Errorf("got %#v, want %#v", got, want)
 			}
+
 			if got, want := card.ends, transactions; got != want {
 				t.Errorf("got %#v, want %#v", got, want)
 			}
+
 			if card.closed {
 				t.Fatal("serial read closed the borrowed card")
 			}
@@ -450,6 +491,7 @@ func TestATR(t *testing.T) {
 	if got, want := info.Identity.ProductID, uint16(0x0016); got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
+
 	if got, want := info.Identity.SerialSuffix, "35780528"; got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
@@ -465,6 +507,7 @@ func TestDeviceClose(t *testing.T) {
 	if err, target := err, closeErr; !errors.Is(err, target) {
 		t.Errorf("got error %v, want errors.Is(error, %#v)", err, target)
 	}
+
 	if got := card.closed; !got {
 		t.Errorf("got false, want true")
 	}
@@ -475,10 +518,12 @@ func TestReadConfigurationBorrowsCard(t *testing.T) {
 		{command: selectOTPAPDU, response: successfulResponse(nil)},
 		{command: configAPDU, response: successfulResponse([]byte{2})},
 	}}
+
 	configuration, err := ReadConfiguration(t.Context(), card)
 	if err != nil || configuration.TransferType != 2 {
 		t.Fatalf("configuration = %#v, error = %v", configuration, err)
 	}
+
 	if card.begins != 0 || card.ends != 0 || card.closed || len(card.steps) != 0 {
 		t.Fatalf("borrowed lifecycle: begins = %d, ends = %d, closed = %t, remaining = %d", card.begins, card.ends, card.closed, len(card.steps))
 	}
@@ -491,6 +536,7 @@ func TestSerialNumberRetainsValueAfterEndTransactionFailure(t *testing.T) {
 		{command: selectOTPAPDU, response: successfulResponse(nil)},
 		{command: serialAPDU, response: successfulResponse(append([]byte{0xd1, byte(len(serial))}, serial...))},
 	}}
+
 	value, err := (&Device{card: card}).SerialNumber(t.Context())
 	if value != serial || !errors.Is(err, want) {
 		t.Fatalf("serial = %q, error = %v", value, err)
@@ -508,6 +554,7 @@ func TestReadSerialNumberFIDOAfterSuccessfulLegacyPrelude(t *testing.T) {
 		{command: selectFIDOAPDU, response: successfulResponse([]byte("U2F_V2"))},
 		{command: serialAPDU, response: successfulResponse(append([]byte{0xd1, byte(len(serial))}, serial...))},
 	}}
+
 	value, err := ReadSerialNumber(t.Context(), card)
 	if err != nil || value != serial || len(card.steps) != 0 {
 		t.Fatalf("serial = %q, error = %v, remaining = %d", value, err, len(card.steps))
@@ -537,6 +584,7 @@ func TestReadSerialNumberStopsAfterLegacyExchangeFailure(t *testing.T) {
 			if serial != "" || !errors.Is(err, tt.wantErr) {
 				t.Fatalf("serial = %q, error = %v, want %v", serial, err, tt.wantErr)
 			}
+
 			if len(card.sent) != 3 || len(card.steps) != 0 {
 				t.Fatalf("sent %d commands, remaining %d", len(card.sent), len(card.steps))
 			}
@@ -559,6 +607,7 @@ func TestReadSerialNumberPreservesLegacyAndFIDOFailures(t *testing.T) {
 	if serial != "" || !errors.Is(err, transmitErr) || !errors.As(err, &statusErr) || statusErr.StatusWord() != 0x6985 {
 		t.Fatalf("serial = %q, error = %v", serial, err)
 	}
+
 	if len(card.steps) != 0 {
 		t.Fatalf("remaining commands: %d", len(card.steps))
 	}

@@ -19,6 +19,7 @@ func TestHardware(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	t.Cleanup(func() {
 		if err := device.Close(); err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -31,6 +32,7 @@ func TestHardware(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if got := serial; len(got) == 0 {
 		t.Fatalf("got empty value %#v, want non-empty", got)
 	}
@@ -47,6 +49,7 @@ func TestHardware(t *testing.T) {
 				t.Fatalf("value does not contain %#v", element)
 			}
 		}
+
 		t.Logf("configuration is not supported: %v", err)
 	} else {
 		if got := config.Raw; len(got) == 0 {
@@ -61,6 +64,7 @@ func TestHardware(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+
 		if got := atr.Raw; len(got) == 0 {
 			t.Fatalf("got empty value %#v, want non-empty", got)
 		}

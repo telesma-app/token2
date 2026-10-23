@@ -17,6 +17,7 @@ type blockingCard struct {
 
 func (c *blockingCard) Transmit(ctx context.Context, _ []byte) ([]byte, error) {
 	close(c.started)
+
 	select {
 	case <-c.closed:
 		return nil, nativepcsc.ErrClosed
@@ -33,13 +34,16 @@ func (c *blockingCard) Close() error {
 func TestDeviceCloseInterruptsConfiguration(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
+
 	card := &blockingCard{started: make(chan struct{}), closed: make(chan struct{})}
 	device := &Device{card: card}
 	readResult := make(chan error, 1)
+
 	go func() {
 		_, err := device.Configuration(ctx)
 		readResult <- err
 	}()
+
 	select {
 	case <-card.started:
 	case <-time.After(5 * time.Second):
@@ -48,6 +52,7 @@ func TestDeviceCloseInterruptsConfiguration(t *testing.T) {
 
 	closeResult := make(chan error, 1)
 	go func() { closeResult <- device.Close() }()
+
 	select {
 	case err := <-closeResult:
 		if err != nil {
@@ -56,6 +61,7 @@ func TestDeviceCloseInterruptsConfiguration(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("Close waited for the blocked card I/O")
 	}
+
 	select {
 	case err := <-readResult:
 		if !errors.Is(err, nativepcsc.ErrClosed) {

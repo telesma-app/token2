@@ -24,9 +24,11 @@ func TestParseConfiguration(t *testing.T) {
 			t.Errorf("got %#v, want %#v", got, want)
 		}
 	}
+
 	if got, want := config.DeviceConfiguration, DeviceConfiguration(0x2a); got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
+
 	if got, want := config.DeviceExtension, DeviceExtension(0x37); got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
@@ -37,6 +39,7 @@ func TestParseConfigurationLegacy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if got, want := config.TransferType, TransferType(0x02); got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
@@ -63,6 +66,7 @@ func TestConfigurationJSONContainsRawMasks(t *testing.T) {
 		}`), &want); err != nil {
 			t.Fatalf("decode expected JSON: %v", err)
 		}
+
 		if err := json.Unmarshal(encoded, &got); err != nil {
 			t.Errorf("decode actual JSON: %v", err)
 		} else if !reflect.DeepEqual(got, want) {
@@ -81,6 +85,7 @@ func TestParseConfigurationRejectsTruncatedResponses(t *testing.T) {
 		if err == nil {
 			t.Fatalf("expected an error")
 		}
+
 		if got := errors.Is(err, ErrInvalidConfiguration); !got {
 			t.Errorf("got false, want true")
 		}
@@ -92,10 +97,12 @@ func TestConfigurationDecodedMasks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	state := c.InterfaceState()
 	if !state.FIDOEnabled || state.HOTPKeystrokeEnabled || !state.CCIDEnabled {
 		t.Fatalf("state = %#v", state)
 	}
+
 	capabilities, ok := c.Capabilities()
 	if !ok || !capabilities.FIDOPINSet || capabilities.FIDOPINLocked || capabilities.SupportsHOTP ||
 		!capabilities.SupportsTOTP || capabilities.SupportsNFC || !capabilities.SupportsCCID || capabilities.SupportsFIDO21 ||
@@ -112,9 +119,11 @@ func TestConfigurationDecodesNegativeBits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if got := c.InterfaceState(); got != (InterfaceState{}) {
 		t.Fatalf("state = %#v", got)
 	}
+
 	caps, ok := c.Capabilities()
 	if !ok || caps.ButtonHOTPSendsEnter || caps.SupportsButtonHOTP {
 		t.Fatalf("capabilities = %#v, known = %t", caps, ok)
@@ -126,9 +135,11 @@ func TestLegacyConfigurationHasNoCapabilities(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if got := c.InterfaceState(); !got.FIDOEnabled || got.HOTPKeystrokeEnabled || !got.CCIDEnabled {
 		t.Fatalf("state = %#v", got)
 	}
+
 	if caps, ok := c.Capabilities(); ok || caps != (Capabilities{}) {
 		t.Fatalf("capabilities = %#v, known = %t", caps, ok)
 	}

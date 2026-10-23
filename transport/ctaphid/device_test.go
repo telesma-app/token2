@@ -43,14 +43,17 @@ func (d *scriptedDevice) Write(ctx context.Context, p []byte) (int, error) {
 	if p[5] == byte(lowlevel.CTAPHID_INIT)|initPacketBit {
 		data := append([]byte(nil), p[8:16]...)
 		data = append(data, d.cid[:]...)
+
 		data = append(data, 2, 1, 0, 0, 0x04)
 		d.initReply <- responseBytes(d.t, lowlevel.BROADCAST_CID, lowlevel.CTAPHID_INIT, data)
+
 		return len(p), nil
 	}
 
 	d.writeContexts = append(d.writeContexts, ctx)
 	n, err := d.writes.Write(p)
 	d.start.Do(func() { close(d.ready) })
+
 	return n, err
 }
 
@@ -61,6 +64,7 @@ func (d *scriptedDevice) Close() error {
 
 func TestATR(t *testing.T) {
 	type contextKey struct{}
+
 	atrCtx := context.WithValue(t.Context(), contextKey{}, "atr")
 	cid := lowlevel.ChannelID{1, 2, 3, 4}
 	atr := []byte{
@@ -76,12 +80,15 @@ func TestATR(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if got, want := info.Identity.ProductID, uint16(0x0016); got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
+
 	if got, want := info.Identity.SerialSuffix, "35780528"; got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
+
 	if got, want := info.Raw, atr; (got == nil) != (want == nil) || !bytes.Equal(got, want) {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
@@ -90,12 +97,15 @@ func TestATR(t *testing.T) {
 	if got, want := len(written), reportSize; got != want {
 		t.Fatalf("got length %d, want %d", got, want)
 	}
+
 	if got, want := written[5], byte(CommandGetATR)|initPacketBit; got != want {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
+
 	if got, want := written[1:5], cid[:]; (got == nil) != (want == nil) || !bytes.Equal(got, want) {
 		t.Errorf("got %#v, want %#v", got, want)
 	}
+
 	if got, want := len(device.writeContexts), 1; got != want {
 		t.Fatalf("got length %d, want %d", got, want)
 	}
@@ -128,6 +138,7 @@ func TestClose(t *testing.T) {
 	if err := transport.Close(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if got := device.closed; !got {
 		t.Errorf("got false, want true")
 	}
@@ -147,13 +158,16 @@ func responseBytes(t testing.TB, cid lowlevel.ChannelID, command lowlevel.Comman
 	}
 
 	var reports bytes.Buffer
+
 	_, err = message.WriteTo(&reports)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	encoded := reports.Bytes()
+
 	var response []byte
+
 	for len(encoded) > 0 {
 		{
 			got, limit := len(encoded), reportSize
@@ -161,6 +175,7 @@ func responseBytes(t testing.TB, cid lowlevel.ChannelID, command lowlevel.Comman
 				t.Fatalf("got %v, want greater than or equal to %v", got, limit)
 			}
 		}
+
 		response = append(response, encoded[1:reportSize]...)
 		encoded = encoded[reportSize:]
 	}
@@ -176,10 +191,13 @@ func openTestTransport(t testing.TB, raw *scriptedDevice, cid lowlevel.ChannelID
 	raw.cid = cid
 	raw.initReply = make(chan []byte, 1)
 	raw.ready = make(chan struct{})
+
 	transport, err := lowlevel.Open(t.Context(), raw)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Cleanup(func() { _ = transport.Close() })
+
 	return transport
 }

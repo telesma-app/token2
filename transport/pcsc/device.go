@@ -61,6 +61,7 @@ func (d *Device) ATR(ctx context.Context) (token2.ATR, error) {
 	if err := ctx.Err(); err != nil {
 		return token2.ATR{}, err
 	}
+
 	status, err := d.card.Status()
 	if err != nil {
 		return token2.ATR{}, err
@@ -97,6 +98,7 @@ func ReadConfiguration(ctx context.Context, card iso7816.Card) (token2.Configura
 	if err != nil {
 		return token2.Configuration{}, err
 	}
+
 	if err := responseError("read Token2 configuration", response); err != nil {
 		return token2.Configuration{}, err
 	}
@@ -109,6 +111,7 @@ func selectOTP(ctx context.Context, card iso7816.Card) error {
 	if err != nil {
 		return err
 	}
+
 	if response.Status == 0x6a82 {
 		return fmt.Errorf(
 			"select Token2 OTP application: %w: %w",
@@ -125,6 +128,7 @@ func selectFIDO(ctx context.Context, card iso7816.Card) error {
 	if err != nil {
 		return err
 	}
+
 	return responseError("select FIDO application", response)
 }
 
@@ -164,11 +168,13 @@ func ReadSerialNumber(ctx context.Context, card iso7816.Card) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	if response.Status == statusInstructionNotSupported {
 		prelude, err := exchange(ctx, card, protocol.LegacySerialNumberPreludeCommand())
 		if err != nil {
 			return "", err
 		}
+
 		if prelude.Status == iso7816.StatusSuccess {
 			response, err = readSerialNumber(ctx, card)
 			if err != nil {
@@ -187,6 +193,7 @@ func ReadSerialNumber(ctx context.Context, card iso7816.Card) (string, error) {
 			}
 		}
 	}
+
 	if err := responseError("read serial number", response); err != nil {
 		return "", err
 	}

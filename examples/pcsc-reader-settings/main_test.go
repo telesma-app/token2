@@ -90,15 +90,18 @@ func TestParseSoundLevel(t *testing.T) {
 				if err == nil {
 					t.Fatalf("expected an error")
 				}
+
 				return
 			}
 
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
+
 			if got, want := level, tt.level; got != want {
 				t.Errorf("got %#v, want %#v", got, want)
 			}
+
 			if got, want := set, tt.set; got != want {
 				t.Errorf("got %#v, want %#v", got, want)
 			}
@@ -128,15 +131,18 @@ func TestParseNFC(t *testing.T) {
 				if err == nil {
 					t.Fatalf("expected an error")
 				}
+
 				return
 			}
 
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
+
 			if got, want := enabled, tt.enabled; got != want {
 				t.Errorf("got %#v, want %#v", got, want)
 			}
+
 			if got, want := set, tt.set; got != want {
 				t.Errorf("got %#v, want %#v", got, want)
 			}
