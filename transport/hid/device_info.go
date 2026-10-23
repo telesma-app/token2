@@ -8,8 +8,9 @@ import (
 	token2ctaphid "github.com/telesma-app/token2/transport/ctaphid"
 )
 
-// ReadDeviceInfo reads only the HID interface at path. vendor may be nil when
-// no CTAPHID channel is available; its ownership remains with the caller.
+// ReadDeviceInfo opens and closes the HID feature interface at path.
+// vendor may be nil when no CTAPHID channel is available. When supplied,
+// it is borrowed for the ATR read and remains owned by the caller.
 func ReadDeviceInfo(ctx context.Context, path string, vendor token2ctaphid.VendorTransport) (info token2.DeviceInfo, err error) {
 	device, openErr := Open(path)
 	if openErr != nil {
@@ -18,7 +19,7 @@ func ReadDeviceInfo(ctx context.Context, path string, vendor token2ctaphid.Vendo
 	} else {
 		serial, readErr := device.SerialNumber(ctx)
 		info.SerialNumber.Err = readErr
-		if readErr == nil || serial != "" {
+		if readErr == nil {
 			info.SerialNumber.Value = &serial
 			if model, known := token2.Identify(serial); known {
 				info.Model = &model
@@ -29,7 +30,7 @@ func ReadDeviceInfo(ctx context.Context, path string, vendor token2ctaphid.Vendo
 	if vendor != nil && ctx.Err() == nil {
 		atr, readErr := token2ctaphid.ReadATR(ctx, vendor)
 		info.ATR.Err = readErr
-		if atr.Raw != nil {
+		if readErr == nil {
 			info.ATR.Value = &atr
 		}
 		err = errors.Join(err, readErr)

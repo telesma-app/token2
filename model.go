@@ -86,12 +86,6 @@ func Identify(serialNumber string) (Model, bool) {
 		return info, false
 	}
 
-	for i := range len(serialNumber) {
-		if serialNumber[i] < '0' || serialNumber[i] > '9' {
-			return info, false
-		}
-	}
-
 	serial, err := strconv.ParseUint(serialNumber, 10, 64)
 	if err != nil {
 		return info, false

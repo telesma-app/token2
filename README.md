@@ -69,6 +69,16 @@ For an existing PC/SC connection, use `ReadSerialNumber` and `ReadConfiguration`
 The caller owns the transaction and must reselect the applet needed by its next
 operation.
 
+Transport `Open` functions return caller-owned devices that must be closed.
+`pcsc.ReadDeviceInfo` and `ctaphid.ReadATR` borrow their connections.
+`hid.ReadDeviceInfo` owns its temporary feature-report connection and borrows
+only the optional CTAPHID channel.
+
+`pcsc.Open(reader, opts...)` forwards native PC/SC options. By default, `Close`
+leaves the card powered (`DispositionLeaveCard`). Pass
+`nativepcsc.WithDisconnectDisposition(nativepcsc.DispositionResetCard)` when
+a reset on close is required.
+
 ### Token2 reader settings
 
 Compatible Token2 readers expose sound-level and NFC controls through PC/SC:

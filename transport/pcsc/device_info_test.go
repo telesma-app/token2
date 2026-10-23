@@ -8,6 +8,7 @@ import (
 
 	"github.com/telesma-app/iso7816"
 	nativepcsc "github.com/telesma-app/pcsc"
+	"github.com/telesma-app/token2"
 )
 
 func TestDeviceInfoKeepsIndependentReadingsAndCleanupError(t *testing.T) {
@@ -62,7 +63,35 @@ func TestDeviceInfoPreservesReadEmptySerial(t *testing.T) {
 	if err != nil || info.SerialNumber.Value == nil || *info.SerialNumber.Value != "" || info.SerialNumber.Err != nil {
 		t.Fatalf("serial = %#v, error = %v", info.SerialNumber, err)
 	}
+	if card.begins != 0 || card.ends != 0 || card.closed || len(card.steps) != 0 {
+		t.Fatalf("borrowed lifecycle: begins=%d ends=%d closed=%t remaining=%d", card.begins, card.ends, card.closed, len(card.steps))
+	}
 	if info.Model != nil || info.Configuration.Value == nil || info.Configuration.Value.TransferType != 0 {
 		t.Fatalf("unknown model or zero configuration lost: %#v", info)
+	}
+}
+
+func TestDeviceInfoContinuesAfterSerialAndATRFailures(t *testing.T) {
+	transmitErr := errors.New("serial read failed")
+	card := &scriptedCard{status: &nativepcsc.CardStatus{ATR: []byte{0x3b}}, steps: []cardStep{
+		{command: selectOTPAPDU, response: successfulResponse(nil)},
+		{command: serialAPDU, err: transmitErr},
+		{command: selectOTPAPDU, response: successfulResponse(nil)},
+		{command: configAPDU, response: successfulResponse([]byte{0})},
+	}}
+
+	info, err := ReadDeviceInfo(t.Context(), card)
+
+	if info.SerialNumber.Value != nil || !errors.Is(info.SerialNumber.Err, transmitErr) {
+		t.Fatalf("serial = %#v", info.SerialNumber)
+	}
+	if info.ATR.Value != nil || !errors.Is(info.ATR.Err, token2.ErrInvalidATR) {
+		t.Fatalf("ATR = %#v", info.ATR)
+	}
+	if info.Configuration.Value == nil || info.Configuration.Value.TransferType != 0 || info.Configuration.Err != nil {
+		t.Fatalf("configuration = %#v", info.Configuration)
+	}
+	if !errors.Is(err, transmitErr) || !errors.Is(err, token2.ErrInvalidATR) || len(card.steps) != 0 {
+		t.Fatalf("error = %v, remaining commands = %d", err, len(card.steps))
 	}
 }

@@ -16,11 +16,12 @@ type InformationCard interface {
 }
 
 // ReadDeviceInfo reads the exact borrowed card, preserving independent results.
-// The caller owns the card and its transaction; the OTP applet remains selected.
+// The caller serializes access, manages the transaction and subsequent applet
+// selection, and retains ownership of the card.
 func ReadDeviceInfo(ctx context.Context, card InformationCard) (info token2.DeviceInfo, err error) {
 	serial, readErr := ReadSerialNumber(ctx, card)
 	info.SerialNumber.Err = readErr
-	if readErr == nil || serial != "" {
+	if readErr == nil {
 		info.SerialNumber.Value = &serial
 		if model, known := token2.Identify(serial); known {
 			info.Model = &model
@@ -35,7 +36,7 @@ func ReadDeviceInfo(ctx context.Context, card InformationCard) (info token2.Devi
 	if readErr == nil {
 		atr, parseErr := token2.ParseATR(status.ATR)
 		readErr = parseErr
-		if atr.Raw != nil {
+		if parseErr == nil {
 			info.ATR.Value = &atr
 		}
 	}
@@ -47,7 +48,7 @@ func ReadDeviceInfo(ctx context.Context, card InformationCard) (info token2.Devi
 
 	configuration, readErr := ReadConfiguration(ctx, card)
 	info.Configuration.Err = readErr
-	if configuration.Raw != nil {
+	if readErr == nil {
 		info.Configuration.Value = &configuration
 	}
 	return info, errors.Join(err, readErr)

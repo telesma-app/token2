@@ -513,3 +513,53 @@ func TestReadSerialNumberFIDOAfterSuccessfulLegacyPrelude(t *testing.T) {
 		t.Fatalf("serial = %q, error = %v, remaining = %d", value, err, len(card.steps))
 	}
 }
+
+func TestReadSerialNumberStopsAfterLegacyExchangeFailure(t *testing.T) {
+	transmitErr := errors.New("transmit failed")
+	for _, tt := range []struct {
+		name     string
+		response []byte
+		err      error
+		wantErr  error
+	}{
+		{name: "transport", err: transmitErr, wantErr: transmitErr},
+		{name: "malformed response", response: []byte{0x90}, wantErr: iso7816.ErrInvalidResponse},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			card := &scriptedCard{steps: []cardStep{
+				{command: selectOTPAPDU, response: successfulResponse(nil)},
+				{command: serialAPDU, response: statusResponse(0x6d00)},
+				{command: legacySerialPreludeAPDU, response: tt.response, err: tt.err},
+			}}
+
+			serial, err := ReadSerialNumber(t.Context(), card)
+
+			if serial != "" || !errors.Is(err, tt.wantErr) {
+				t.Fatalf("serial = %q, error = %v, want %v", serial, err, tt.wantErr)
+			}
+			if len(card.sent) != 3 || len(card.steps) != 0 {
+				t.Fatalf("sent %d commands, remaining %d", len(card.sent), len(card.steps))
+			}
+		})
+	}
+}
+
+func TestReadSerialNumberPreservesLegacyAndFIDOFailures(t *testing.T) {
+	transmitErr := errors.New("select FIDO failed")
+	card := &scriptedCard{steps: []cardStep{
+		{command: selectOTPAPDU, response: successfulResponse(nil)},
+		{command: serialAPDU, response: statusResponse(0x6d00)},
+		{command: legacySerialPreludeAPDU, response: statusResponse(0x6985)},
+		{command: selectFIDOAPDU, err: transmitErr},
+	}}
+
+	serial, err := ReadSerialNumber(t.Context(), card)
+
+	var statusErr *iso7816.APDUError
+	if serial != "" || !errors.Is(err, transmitErr) || !errors.As(err, &statusErr) || statusErr.StatusWord() != 0x6985 {
+		t.Fatalf("serial = %q, error = %v", serial, err)
+	}
+	if len(card.steps) != 0 {
+		t.Fatalf("remaining commands: %d", len(card.steps))
+	}
+}

@@ -35,9 +35,11 @@ type Device struct {
 	card card
 }
 
-// Open connects to the Token2 device in reader.
-func Open(reader string) (*Device, error) {
-	card, err := nativepcsc.Open(reader)
+// Open connects to the Token2 device in reader and returns a caller-owned device.
+// Options are passed to the native PC/SC connection; Close leaves the card
+// powered by default. Use nativepcsc.WithDisconnectDisposition to request a reset.
+func Open(reader string, opts ...nativepcsc.OpenOption) (*Device, error) {
+	card, err := nativepcsc.Open(reader, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -45,11 +47,9 @@ func Open(reader string) (*Device, error) {
 	return &Device{card: card}, nil
 }
 
-// Close closes the PC/SC connection.
+// Close closes the PC/SC connection, canceling an active card operation when
+// supported by the native implementation.
 func (d *Device) Close() error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
 	return d.card.Close()
 }
 
@@ -93,7 +93,15 @@ func ReadConfiguration(ctx context.Context, card iso7816.Card) (token2.Configura
 		return token2.Configuration{}, err
 	}
 
-	return readConfiguration(ctx, card)
+	response, err := exchange(ctx, card, protocol.ConfigurationCommand())
+	if err != nil {
+		return token2.Configuration{}, err
+	}
+	if err := responseError("read Token2 configuration", response); err != nil {
+		return token2.Configuration{}, err
+	}
+
+	return token2.ParseConfiguration(response.Data)
 }
 
 func selectOTP(ctx context.Context, card iso7816.Card) error {
@@ -120,37 +128,12 @@ func selectFIDO(ctx context.Context, card iso7816.Card) error {
 	return responseError("select FIDO application", response)
 }
 
-func readConfiguration(ctx context.Context, card iso7816.Card) (token2.Configuration, error) {
-	response, err := exchange(ctx, card, protocol.ConfigurationCommand())
-	if err != nil {
-		return token2.Configuration{}, err
-	}
-	if err := responseError("read Token2 configuration", response); err != nil {
-		return token2.Configuration{}, err
-	}
-
-	return token2.ParseConfiguration(response.Data)
-}
-
 func readSerialNumber(ctx context.Context, card iso7816.Card) (iso7816.Response, error) {
 	return exchange(
 		ctx,
 		card,
 		protocol.SerialNumberCommand(iso7816.EncodingShort),
 	)
-}
-
-func prepareLegacySerialNumber(ctx context.Context, card iso7816.Card) error {
-	response, err := exchange(
-		ctx,
-		card,
-		protocol.LegacySerialNumberPreludeCommand(),
-	)
-	if err != nil {
-		return err
-	}
-
-	return responseError("prepare legacy serial-number command", response)
 }
 
 // SerialNumber reads the full serial number reported by the device.
@@ -182,22 +165,20 @@ func ReadSerialNumber(ctx context.Context, card iso7816.Card) (string, error) {
 		return "", err
 	}
 	if response.Status == statusInstructionNotSupported {
-		legacyErr := prepareLegacySerialNumber(ctx, card)
-		if legacyErr == nil {
+		prelude, err := exchange(ctx, card, protocol.LegacySerialNumberPreludeCommand())
+		if err != nil {
+			return "", err
+		}
+		if prelude.Status == iso7816.StatusSuccess {
 			response, err = readSerialNumber(ctx, card)
 			if err != nil {
 				return "", err
-			}
-		} else {
-			var statusErr *iso7816.APDUError
-			if !errors.As(legacyErr, &statusErr) {
-				return "", legacyErr
 			}
 		}
 
 		if response.Status == statusInstructionNotSupported {
 			if err := selectFIDO(ctx, card); err != nil {
-				return "", errors.Join(legacyErr, err)
+				return "", errors.Join(responseError("prepare legacy serial-number command", prelude), err)
 			}
 
 			response, err = readSerialNumber(ctx, card)

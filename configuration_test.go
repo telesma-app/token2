@@ -3,6 +3,7 @@ package token2
 import (
 	"encoding/json"
 	"errors"
+	"reflect"
 	"testing"
 )
 
@@ -62,9 +63,9 @@ func TestConfigurationJSONContainsRawMasks(t *testing.T) {
 		}`), &want); err != nil {
 			t.Fatalf("decode expected JSON: %v", err)
 		}
-		if err := json.Unmarshal([]byte(string(encoded)), &got); err != nil {
+		if err := json.Unmarshal(encoded, &got); err != nil {
 			t.Errorf("decode actual JSON: %v", err)
-		} else if !jsonValuesEqual(t, got, want) {
+		} else if !reflect.DeepEqual(got, want) {
 			t.Errorf("got JSON %#v, want %#v", got, want)
 		}
 	}
