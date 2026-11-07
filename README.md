@@ -3,170 +3,124 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/telesma-app/token2.svg)](https://pkg.go.dev/github.com/telesma-app/token2)
 [![Go](https://github.com/telesma-app/token2/actions/workflows/go.yml/badge.svg)](https://github.com/telesma-app/token2/actions/workflows/go.yml)
 
-Pure-Go Token2 device support over PC/SC, USB HID feature reports and CTAPHID.
+Pure-Go support for Token2 device information, reader settings and PIV extensions
+over PC/SC, USB HID feature reports and CTAPHID.
 
 > [!WARNING]
 > This module is under active development. Its public API may change during `v0.x`.
 
-## Packages
+## Support
 
-- `token2` contains response parsers, device-information types and model identification.
-- `token2/transport/pcsc` opens Token2 devices through
-  [`github.com/telesma-app/pcsc`](https://github.com/telesma-app/pcsc).
-- `token2/transport/hid` opens the Token2 HID interface through
-  [`github.com/telesma-app/hid`](https://github.com/telesma-app/hid).
-- `token2/transport/ctaphid` reads the Token2 ATR through CTAPHID vendor
-  command `0x41`, using [`github.com/telesma-app/ctap`](https://github.com/telesma-app/ctap).
-- Interface correlation and physical-device selection belong to the consuming runtime.
+- Device serial numbers, ATR identity and configuration through the available
+  PC/SC and HID interfaces.
+- Model identification from reported serial numbers, with parsers for device
+  configuration, enabled interfaces and capabilities.
+- Reader sound-level and NFC settings on compatible Token2 readers.
+- PIV version, slot metadata and attestation certificates.
+- PIV key import, generation, management-key changes and administrative commands.
 
-## Data available by release and connection
+Available information and commands depend on the device, connection and firmware.
+USB and NFC interfaces may expose different information for the same token.
+PIV extensions use an existing connection from [`telesma-app/piv`](https://github.com/telesma-app/piv).
 
-For the verified devices below, **✓** means the library reads the data through
-at least one method on that connection. **—** means the current readers do not
-provide that field.
+## Installation
 
-| Release / sample | Connection | Full serial | Raw ATR | PID + suffix from ATR | Token2 configuration |
-|---|---|:---:|:---:|:---:|:---:|
-| R3.1 USB-A NFC | USB | ✓ | ✓ | ✓ | ✓ |
-| R3.1 USB-A NFC | NFC | ✓ | ✓ | — | — |
-| R3.2 Mini USB-A / Bio3 | USB | ✓ | ✓ | ✓ | ✓ |
-| R3.3 Dual | USB | ✓ | ✓ | ✓¹ | ✓ |
-| R3.3 Dual | NFC | ✓ | ✓ | — | — |
-| R3.3 card | NFC | ✓ | ✓ | — | — |
+```sh
+go get github.com/telesma-app/token2@latest
+```
 
-USB results combine Feature HID, CTAPHID and PC/SC reads.
-¹ R3.3 Dual supplies PID and serial suffix through CTAPHID; its PC/SC ATR
-contains no Token2 identity.
+See [`go.mod`](go.mod) for the required Go version.
 
-On the listed NFC devices, the ATR is valid without Token2 identity, and the
-configuration command returns `6A86`. Serial and ATR remain available.
-Untested models and connections, including R3.4, are omitted.
+## Quick start
 
-Model names can be derived from the full serial using `Identify`.
-
-### Device information API
-
-`DeviceInfo` contains independent `Descriptor[T]` observations from one interface,
-using the same `Value *T` and `Err error` pattern as the HID package. A non-nil
-value preserves a completed read, including zero values and empty strings.
-The original error remains available through `errors.Is`/`errors.As`; a value
-and an error may coexist. JSON contains `value` (null when absent) and excludes
-`Err`. Applications serialize errors as needed.
-
-Use `hid.ReadDeviceInfo(ctx, path, vendor)` for a specific HID interface and its
-optional borrowed CTAPHID channel. Use `pcsc.Device.DeviceInfo(ctx)` for one
-managed transaction, or `pcsc.ReadDeviceInfo(ctx, card)` inside a caller-owned
-transaction. Readers preserve independent serial, ATR and configuration results.
-
-`ParseATR` walks the ATR interface-byte groups and validates its length/checksum.
-A valid ATR without Token2 historical bytes returns `ATR{Raw: ..., Identity: nil}`.
-Malformed ATR data returns `ErrInvalidATR`.
-
-`Identify(serial)` looks up a model without changing the reported data.
-`Configuration.InterfaceState()` and `Capabilities()` decode configuration flags.
-
-For an existing PC/SC connection, use `ReadSerialNumber` and `ReadConfiguration`.
-The caller owns the transaction and must reselect the applet needed by its next
-operation.
-
-Transport `Open` functions return caller-owned devices that must be closed.
-`pcsc.ReadDeviceInfo` and `ctaphid.ReadATR` borrow their connections.
-`hid.ReadDeviceInfo` owns its temporary feature-report connection and borrows
-only the optional CTAPHID channel.
-
-`pcsc.Open(reader, opts...)` forwards native PC/SC options. By default, `Close`
-leaves the card powered (`DispositionLeaveCard`). Pass
-`nativepcsc.WithDisconnectDisposition(nativepcsc.DispositionResetCard)` when
-a reset on close is required.
-
-### Token2 reader settings
-
-Compatible Token2 readers expose sound-level and NFC controls through PC/SC:
+Open a device by its exact PC/SC reader name and print its serial number and
+interface configuration. Replace the reader name with one from your system:
 
 ```go
-if err := device.SetReaderSoundLevel(ctx, token2pcsc.ReaderSoundLevel3); err != nil {
-	return err
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+
+	token2pcsc "github.com/telesma-app/token2/transport/pcsc"
+)
+
+func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
 }
-if err := device.SetReaderNFC(ctx, false); err != nil {
-	return err
+
+func run() error {
+	device, err := token2pcsc.Open("exact PC/SC reader name")
+	if err != nil {
+		return err
+	}
+	defer device.Close()
+
+	ctx := context.Background()
+	serial, err := device.SerialNumber(ctx)
+	if err != nil {
+		return err
+	}
+
+	config, err := device.Configuration(ctx)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Serial: %s\nInterfaces: %+v\n", serial, config.InterfaceState())
+	return nil
 }
 ```
 
-`ReaderSoundOff` disables sound; the other sound levels range from 1 through 5.
-The reader must be physically power-cycled after changing either setting. A
-successful `9000` response means only that the command was received: an
-unsupported reader may return success and ignore it.
+This example only reads information. PC/SC access requires a running native
+smart-card service and a connected token with its CCID interface enabled.
+Close devices when finished; the PC/SC connection leaves the card powered by default.
+
+## Packages
+
+| Package | Purpose |
+| --- | --- |
+| [`token2`](https://pkg.go.dev/github.com/telesma-app/token2) | Device data, response parsers and model identification |
+| [`transport/pcsc`](transport/pcsc) | Device information and reader settings over PC/SC |
+| [`transport/hid`](transport/hid) | Serial numbers through USB HID feature reports |
+| [`transport/ctaphid`](transport/ctaphid) | ATR identity through a FIDO HID connection |
+| [`piv`](piv) | Token2 PIV extensions |
 
 ## Examples
 
-Complete runnable usage is available in the transport examples. Each example is
-an independent Go module, keeping transport-specific dependencies out of the
-root module.
-
-| Example                                                        | Purpose                                              | Optional configuration                |
-|----------------------------------------------------------------|------------------------------------------------------|---------------------------------------|
-| [`examples/pcsc`](examples/pcsc)                               | Read identity and configuration over PC/SC           | `PCSC_READER` (reader-name substring) |
-| [`examples/pcsc-reader-settings`](examples/pcsc-reader-settings) | Configure Token2 reader sound and NFC over PC/SC      | `-reader` (reader-name substring)     |
-| [`examples/hid`](examples/hid)                                 | Read the full serial number over HID feature reports | `TOKEN2_HID_PATH`                     |
-| [`examples/ctaphid`](examples/ctaphid)                         | Read ATR identity over the CTAPHID vendor command    | `TOKEN2_CTAPHID_PATH`                 |
-
-The CTAPHID transport sends logical vendor command `0x41`; CTAPHID framing adds
-the init-packet bit, so the on-wire command byte is `0xc1`.
-
-Run an example from its directory:
+Runnable examples cover [PC/SC information](examples/pcsc),
+[HID serial numbers](examples/hid), [CTAPHID identity](examples/ctaphid) and
+[reader settings](examples/pcsc-reader-settings). Each example is a separate Go module.
 
 ```sh
 cd examples/pcsc
 go run .
 ```
 
-Read-only examples select the first matching device unless the corresponding
-environment variable is set.
+It uses the first matching reader; set `PCSC_READER` to a reader-name substring
+to select one. The reader-settings example requires explicit settings and changes
+the reader configuration; the information examples only read data.
 
-The reader-settings example requires at least one setting and never changes a
-reader merely by being run. For example:
-
-```sh
-cd examples/pcsc-reader-settings
-go run . -reader 'TOKEN2' -sound 3 -nfc off
-```
-
-When `-reader` is omitted, the example prefers `Token2 Smart Reader` and then
-falls back to the first PC/SC reader with a card present. An explicit `-reader`
-filter never falls back to a different reader.
-
-## Lint
-
-With [golangci-lint v2](https://golangci-lint.run/docs/welcome/install/) installed,
-run:
+## Development
 
 ```sh
+go test ./...
 make lint
 ```
 
-This checks the root module and each example with the standard linters and
-`wsl_v5` using its default settings.
+Normal tests do not require hardware. The lint target checks the root module
+and each example with golangci-lint v2.
 
-## Hardware tests
+## License
 
-Hardware tests are opt-in:
+[Apache License 2.0](LICENSE).
 
-```sh
-TOKEN2_PCSC_TEST_READER='TOKEN2 FIDO2 Security Key(0016)' go test -run TestHardware -v ./transport/pcsc
-TOKEN2_HID_TEST_PATH='platform-specific-path' go test -run TestHardware -v ./transport/hid
-TOKEN2_CTAPHID_TEST_PATH='platform-specific-path' go test -run TestHardware -v ./transport/ctaphid
-```
+## References
 
-To read full serial numbers from several PC/SC tokens one after another, run the event monitor and insert or present each token:
-
-```sh
-go run ./cmd/pcsc-serial-monitor
-```
-
-For labelled USB/NFC captures with complete raw replies, repeated reads and
-independent error recording, use [`cmd/token2-probe`](cmd/token2-probe):
-
-```sh
-GOWORK=off go build -o /tmp/token2-probe ./cmd/token2-probe
-/tmp/token2-probe
-```
+- [Token2 Companion App: device information and configuration](https://www.token2.com/site/page/token2-companion-app-v2-user-manual)
+- [Token2 Dual Reader and sound configuration tool](https://www.token2.com/products/nfc-contact-dual-desktop-reader)
+- [Token2 PIV vendor-command implementation](https://github.com/token2/fido2-manage/blob/main/token2-piv-tool/lib/t2piv.c)
