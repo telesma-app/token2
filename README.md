@@ -3,7 +3,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/telesma-app/token2.svg)](https://pkg.go.dev/github.com/telesma-app/token2)
 [![Go](https://github.com/telesma-app/token2/actions/workflows/go.yml/badge.svg)](https://github.com/telesma-app/token2/actions/workflows/go.yml)
 
-Pure-Go support for Token2 device information, reader settings and PIV extensions
+Go library for Token2 device information, reader settings and PIV extensions
 over PC/SC, USB HID feature reports and CTAPHID.
 
 > [!WARNING]
