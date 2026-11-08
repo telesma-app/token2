@@ -1,6 +1,6 @@
 module github.com/telesma-app/token2
 
-go 1.27.0
+go 1.27.3
 
 require (
 	github.com/fxamacker/cbor/v2 v2.10.0
@@ -8,7 +8,7 @@ require (
 	github.com/telesma-app/hid v0.14.1
 	github.com/telesma-app/iso7816 v0.4.0
 	github.com/telesma-app/pcsc v0.10.0
-	github.com/telesma-app/piv v0.1.0
+	github.com/telesma-app/piv v0.1.1
 	github.com/telesma-app/yubico v0.8.0
 )
 
