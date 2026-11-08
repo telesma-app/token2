@@ -9,7 +9,7 @@ over PC/SC, USB HID feature reports and CTAPHID.
 > [!WARNING]
 > This module is under active development. Its public API may change during `v0.x`.
 
-## Support
+## Features
 
 - Device serial numbers, ATR identity and configuration through the available
   PC/SC and HID interfaces.
@@ -108,7 +108,7 @@ the reader configuration; the information examples only read data.
 ## Development
 
 ```sh
-go test ./...
+GOWORK=off go test ./...
 make lint
 ```
 

@@ -71,9 +71,10 @@ func Reset(ctx context.Context, transport VendorTransport) error {
 }
 
 // ImportKey authenticates management and replaces the slot's private key,
-// preserving its certificate. Supported inputs are two-prime RSA-1024/2048/3072
-// with exponent 65537 and ECDSA P-256/P-384. The private key is borrowed without
-// modification. Policies are encoded unchanged; firmware determines support.
+// preserving its certificate. Supported inputs are two-prime RSA-1024/2048/3072/4096
+// with exponent 65537, ECDSA P-256/P-384/P-521, Ed25519 and X25519 keys. The private
+// key is borrowed without modification. Policies are encoded unchanged; firmware
+// determines support.
 // An interrupted exchange may have replaced the key. The function never retries.
 func ImportKey(
 	ctx context.Context,
@@ -88,8 +89,8 @@ func ImportKey(
 
 // GenerateKey authenticates management and replaces a slot's private key with
 // explicit optional PIN/touch policies, returning the generated public key.
-// Supported algorithms are RSA-1024/2048/3072 and P-256/P-384. Certificates are
-// unchanged. A client.KeyGenerationError means replacement was acknowledged
+// Supported algorithms are RSA-1024/2048/3072/4096, P-256/P-384/P-521, Ed25519 and
+// X25519. Certificates are unchanged. A client.KeyGenerationError means replacement was acknowledged
 // but the public-key response was invalid. Interrupted exchanges may also have
 // replaced the key. The function never retries.
 func GenerateKey(

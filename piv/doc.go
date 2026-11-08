@@ -9,6 +9,10 @@
 // depend on its applet and policy. No default management key, automatic retry,
 // firmware gate, or vendor fallback is applied.
 //
+// Generation, import and metadata support RSA-1024/2048/3072/4096,
+// P-256/P-384/P-521, Ed25519 and X25519 using their shared wire encodings.
+// The card decides which algorithms its firmware supports.
+//
 // TOKEN2 serial suffixes use packed BCD rather than Yubico's binary uint32.
 // Attestation certificates may use TOKEN2's 1.3.6.1.4.1.66563.3 arc or the legacy
 // 1.3.6.1.4.1.41482.3 arc; returning or parsing a certificate does not establish
