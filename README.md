@@ -108,7 +108,7 @@ the reader configuration; the information examples only read data.
 ## Development
 
 ```sh
-GOWORK=off go test ./...
+go test ./...
 make lint
 ```
 

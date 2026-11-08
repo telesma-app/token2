@@ -5,10 +5,10 @@ It does not create credentials, authenticate, set a PIN, reset a token, or
 change token/reader settings. SELECT changes the active applet; the legacy
 prelude sends GetInfo through the Token2 tunnel.
 
-Build against the versions recorded in this repository's `go.mod`:
+Build from the repository root:
 
 ```sh
-GOWORK=off go build -o /tmp/token2-probe ./cmd/token2-probe
+go build -o /tmp/token2-probe ./cmd/token2-probe
 /tmp/token2-probe -list
 /tmp/token2-probe
 ```
